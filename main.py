@@ -180,7 +180,7 @@ class Simulations:
         utils.save_results(log, filepath)
 
     def file_info(self, graph_connectivity, labels_per_agent, prob_aggr_type, prob_sgd_type, prob_dist_params, num_agents):
-        dirname = "../results"
+        dirname = "output/results"
         dirpath = os.path.join(os.getcwd(), dirname)
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
