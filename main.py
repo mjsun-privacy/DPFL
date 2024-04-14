@@ -4,6 +4,10 @@ import random
 import utils
 from DSpodFL import DSpodFL
 
+import torch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.set_default_tensor_type(torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
 
 class Simulations:
     def __init__(self, seed):
