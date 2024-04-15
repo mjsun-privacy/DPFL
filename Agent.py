@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import deepcopy     # copy model
 from random import choices, random
 
 import torch
