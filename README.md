@@ -12,6 +12,11 @@ Decentralized Sporadic Federated Learning: A Unified Methodology with Generalize
   year={2024}
 }
 ```
+
+## Requirements
+
+Python/3.8
+
 ## How to Setup
 
 python3 -m venv .venv
