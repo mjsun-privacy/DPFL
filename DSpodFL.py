@@ -1,12 +1,14 @@
 from random import uniform, betavariate
-
+import numpy as np
 import networkx as nx
+import gymnasium as gym
+from gymnasium import spaces
 
 import utils
 from Agent import Agent
 
 
-class DSpodFL:
+class DSpodFL(gym.Env):
     def __init__(self,
                  model_name: str,
                  dataset_name: str,
@@ -22,6 +24,7 @@ class DSpodFL:
                  prob_dist_params,
                  termination_delay: float,
                  DandB):
+
         self.model_name = model_name
         self.num_epochs = num_epochs
         self.num_agents = num_agents
@@ -34,6 +37,13 @@ class DSpodFL:
         self.sim_type = sim_type
         self.prob_dist_params = prob_dist_params
         self.termination_delay = termination_delay
+
+        #Call constructor of parent class and specify action and state spaces
+        super(DSpodFL, self).__init__()
+        self.action_space = spaces.Box(low=0.0, high=1.0, shape=(self.num_agents*self.num_agents,), dtype=float) #flattened mixing matrix
+        self.observation_space = spaces.Box(low=0, high=1000.0, shape=(self.num_agents,), dtype=float) #TODO: these are the losses. find how to give no high bound
+
+        self.obs = [0]*self.num_agents # New: contains the system state (observation). Initialized at zero
 
         self.num_classes, transform, self.num_channels = utils.aux_info(dataset_name, model_name)
         self.train_set, self.test_set, self.input_dim = utils.dataset_info(dataset_name, transform)
@@ -64,9 +74,11 @@ class DSpodFL:
                 return [betavariate(self.prob_dist_params[0], self.prob_dist_params[1]) for _ in range(self.num_agents)]
         elif self.prob_sgd_type in ['random', 'beta']:
             return self.initial_prob_sgds
-        elif self.prob_sgd_type == 'full':
+        
+        #BUGFIXED!!!
+        if self.prob_sgd_type == 'full':
             return [1 for _ in range(self.num_agents)]
-        elif self.prob_sgd_type == 'zero':
+        if self.prob_sgd_type == 'zero':
             return [0 for _ in range(self.num_agents)]
 
     def generate_prob_aggrs(self, is_initial=False):
@@ -101,6 +113,7 @@ class DSpodFL:
         agents = []
         for i in range(self.num_agents):
             agent_i = Agent(
+                id=i,
                 initial_model=models[i],
                 criterion=criterion,
                 train_set=train_sets[i],
@@ -115,6 +128,118 @@ class DSpodFL:
             for j in list(self.graph.adj[i]):
                 agents[i].add_neighbor(agents[j], self.prob_aggrs[i][j], self.initial_prob_aggrs[i][j])
         return agents
+
+    def step(self, k, num_iters, mixing_matrix):
+        for i in range(num_iters):
+            total_iter = k * num_iters + i
+            # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
+
+            loss = 0
+            cpu_used, max_cpu_usable = 0, 0
+            bandwidth_used, max_bandwidth_usable = 0, 0
+            transmission_time_used, max_transmission_time_usable = 0, 0
+            processing_time_used, max_processing_time_usable = 0, 0
+            delay_used, max_delay_usable = 0, 0
+
+            for j in range(self.num_agents):
+                self.agents[j].run_step1(mixing_matrix)
+
+            losses = [0]*self.num_agents
+            for j in range(self.num_agents):
+                loss += float(self.agents[j].loss)
+                losses[j] = self.agents[j].loss # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents
+                cpu_used += self.agents[j].cpu_used()
+                max_cpu_usable += self.agents[j].max_cpu_usable()
+                processing_time_used += self.agents[j].processing_time_used()
+                max_processing_time_usable += self.agents[j].max_processing_time_usable()
+                bandwidth_used += self.agents[j].bandwidth_used()
+                max_bandwidth_usable += self.agents[j].max_bandwidth_usable()
+                transmission_time_used += self.agents[j].transmission_time_used()
+                # max_transmission_time_usable += self.agents[j].max_transmission_time_usable()
+
+                # delay_used += self.agents[j].delay_used()
+                # max_delay_usable += self.agents[j].max_delay_usable()
+
+            for j in range(self.num_agents):
+                self.agents[j].run_step2()
+
+            # iters.append(total_iter)
+            # losses.append(loss / self.num_agents)
+            # cpu_utilizations.append(cpu_used / max_cpu_usable)
+            # processing_time_utilizations.append(processing_time_used / max_processing_time_usable)
+            # bandwidth_utilizations.append(bandwidth_used / max_bandwidth_usable)
+            # transmission_time_utilizations.append(transmission_time_used / max_transmission_time_usable)
+            # delay_utilizations.append(delay_used / max_delay_usable)
+
+            # cpu_useds.append(cpu_used / self.num_agents)
+            # processing_time_useds.append(processing_time_used / self.num_agents)
+            # bandwidth_useds.append(bandwidth_used / self.num_agents)
+            # transmission_time_useds.append(transmission_time_used / self.num_agents)
+            # delay_useds.append(delay_used / self.num_agents)
+            # if total_iter == 0:
+            #     cpu_useds_cumsum.append(cpu_useds[-1])
+            #     processing_time_useds_cumsum.append(processing_time_useds[-1])
+            #     bandwidth_useds_cumsum.append(bandwidth_useds[-1])
+            #     transmission_time_useds_cumsum.append(transmission_time_useds[-1])
+            #     delay_useds_cumsum.append(delay_useds[-1])
+            # else:
+            #     cpu_useds_cumsum.append(cpu_useds_cumsum[-1] + cpu_useds[-1])
+            #     processing_time_useds_cumsum.append(
+            #         processing_time_useds_cumsum[-1] + processing_time_useds[-1])
+            #     bandwidth_useds_cumsum.append(bandwidth_useds_cumsum[-1] + bandwidth_useds[-1])
+            #     transmission_time_useds_cumsum.append(
+            #         transmission_time_useds_cumsum[-1] + transmission_time_useds[-1])
+            #     delay_useds_cumsum.append(delay_useds_cumsum[-1] + delay_useds[-1])
+
+            # if self.accuracy_calculation_condition(total_iter, delay_useds_cumsum[-1]):
+            #     accuracy = 0
+            #     bw_util = 0
+            #     cpu_util = 0
+
+            #     for j in range(self.num_agents):
+            #         self.agents[j].calculate_accuracy()
+
+            #     for j in range(self.num_agents):
+            #         accuracy += self.agents[j].get_accuracy()
+            #         curr_bw = self.agents[j].get_aggregation_count() / (
+            #                 self.agents[j].get_degree() * (k * num_iters + i + 1))
+            #         curr_cpu = self.agents[j].get_data_processed() / (self.batch_size * (k * num_iters + i + 1))
+            #         bw_util += curr_bw
+            #         cpu_util += curr_cpu
+            #     accuracies.append(accuracy / self.num_agents)
+            #     iters_sampled.append(total_iter)
+
+            if self.change_probs_condition(total_iter):
+                if self.prob_sgd_type == 'full':
+                    self.reset_prob_sgds('zero')
+                    self.reset_prob_aggrs('full')
+                else:
+                    self.reset_prob_sgds('full')
+                    self.reset_prob_aggrs('zero')
+
+            # if self.termination_condition(total_iter, delay_useds_cumsum[-1]):
+            #     break
+            done = False #TODO: return true when termination condition is met, e.g. convergence
+            info = {}
+            reward = -loss #TODO: make sure this is actually the sum of losses on the validation set by checking semantics of self.loss
+            return losses, reward, done, info
+
+    def compute_action(self):
+        # TODO: replace the following line with RL agent from SB3, for example action, _state = model.predict(self.obs, deterministic=True)
+        # The problem I see is that if obs is only the losses vector, can the agent understand the task similarity?
+        mixing_matrix = np.random.rand(self.num_agents,self.num_agents)
+        mixing_matrix = (mixing_matrix + np.transpose(mixing_matrix))/2 #just a trick to make it symmetric
+
+        # TODO: later, insert action legality check hereafter. an example:
+        # # Make sure that illegal actions cannot be taken
+        # action = np.clip(action, self.action_space.low, self.action_space.high)
+        # action_sum = np.sum(action)
+        # # Make sure that action sum is 1
+        # # TODO: make this valid per row
+        # if action_sum != 1:
+        #     action /= action_sum  # Normalize the action array
+
+        return mixing_matrix
 
     def run(self):
         # num_iters = 2  # comment this line (this was used for testing)
@@ -132,100 +257,12 @@ class DSpodFL:
         for k in range(self.num_epochs):
             print(f"epoch: {k}")
 
-            for i in range(num_iters):
-                total_iter = k * num_iters + i
-                # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
+            mixing_matrix = self.compute_action()
+            self.obs, reward, done, info = self.step(k,num_iters,mixing_matrix) #this is new: advances the system
+            # TODO: save reward in a file or do something with it, e.g., plot it
 
-                loss = 0
-                cpu_used, max_cpu_usable = 0, 0
-                bandwidth_used, max_bandwidth_usable = 0, 0
-                transmission_time_used, max_transmission_time_usable = 0, 0
-                processing_time_used, max_processing_time_usable = 0, 0
-                delay_used, max_delay_usable = 0, 0
-
-                for j in range(self.num_agents):
-                    self.agents[j].run_step1()
-
-                for j in range(self.num_agents):
-                    loss += float(self.agents[j].get_loss())
-                    cpu_used += self.agents[j].cpu_used()
-                    max_cpu_usable += self.agents[j].max_cpu_usable()
-                    processing_time_used += self.agents[j].processing_time_used()
-                    max_processing_time_usable += self.agents[j].max_processing_time_usable()
-                    bandwidth_used += self.agents[j].bandwidth_used()
-                    max_bandwidth_usable += self.agents[j].max_bandwidth_usable()
-                    transmission_time_used += self.agents[j].transmission_time_used()
-                    max_transmission_time_usable += self.agents[j].max_transmission_time_usable()
-
-                    delay_used += self.agents[j].delay_used()
-                    max_delay_usable += self.agents[j].max_delay_usable()
-
-                for j in range(self.num_agents):
-                    self.agents[j].run_step2()
-
-                iters.append(total_iter)
-                losses.append(loss / self.num_agents)
-                cpu_utilizations.append(cpu_used / max_cpu_usable)
-                processing_time_utilizations.append(processing_time_used / max_processing_time_usable)
-                bandwidth_utilizations.append(bandwidth_used / max_bandwidth_usable)
-                transmission_time_utilizations.append(transmission_time_used / max_transmission_time_usable)
-                delay_utilizations.append(delay_used / max_delay_usable)
-
-                cpu_useds.append(cpu_used / self.num_agents)
-                processing_time_useds.append(processing_time_used / self.num_agents)
-                bandwidth_useds.append(bandwidth_used / self.num_agents)
-                transmission_time_useds.append(transmission_time_used / self.num_agents)
-                delay_useds.append(delay_used / self.num_agents)
-                if total_iter == 0:
-                    cpu_useds_cumsum.append(cpu_useds[-1])
-                    processing_time_useds_cumsum.append(processing_time_useds[-1])
-                    bandwidth_useds_cumsum.append(bandwidth_useds[-1])
-                    transmission_time_useds_cumsum.append(transmission_time_useds[-1])
-                    delay_useds_cumsum.append(delay_useds[-1])
-                else:
-                    cpu_useds_cumsum.append(cpu_useds_cumsum[-1] + cpu_useds[-1])
-                    processing_time_useds_cumsum.append(
-                        processing_time_useds_cumsum[-1] + processing_time_useds[-1])
-                    bandwidth_useds_cumsum.append(bandwidth_useds_cumsum[-1] + bandwidth_useds[-1])
-                    transmission_time_useds_cumsum.append(
-                        transmission_time_useds_cumsum[-1] + transmission_time_useds[-1])
-                    delay_useds_cumsum.append(delay_useds_cumsum[-1] + delay_useds[-1])
-
-                if self.accuracy_calculation_condition(total_iter, delay_useds_cumsum[-1]):
-                    accuracy = 0
-                    bw_util = 0
-                    cpu_util = 0
-
-                    for j in range(self.num_agents):
-                        self.agents[j].calculate_accuracy()
-
-                    for j in range(self.num_agents):
-                        accuracy += self.agents[j].get_accuracy()
-                        curr_bw = self.agents[j].get_aggregation_count() / (
-                                self.agents[j].get_degree() * (k * num_iters + i + 1))
-                        curr_cpu = self.agents[j].get_data_processed() / (self.batch_size * (k * num_iters + i + 1))
-                        bw_util += curr_bw
-                        cpu_util += curr_cpu
-                        # print(f"Agent {j}: accuracy = {self.agents[j].get_accuracy()}, bw_util = {curr_bw}, "
-                        #       f"cpu_util = {curr_cpu}")
-
-                    accuracies.append(accuracy / self.num_agents)
-                    # print(f"iter = {i}, avg accuracy = {accuracies[-1]}, avg bw_util = {bw_util / self.num_agents}, "
-                    #       f"avg cpu_util = {cpu_util / self.num_agents}")
-                    iters_sampled.append(total_iter)
-
-                if self.change_probs_condition(total_iter):
-                    if self.prob_sgd_type == 'full':
-                        self.reset_prob_sgds('zero')
-                        self.reset_prob_aggrs('full')
-                    else:
-                        self.reset_prob_sgds('full')
-                        self.reset_prob_aggrs('zero')
-
-                if self.termination_condition(total_iter, delay_useds_cumsum[-1]):
-                    break
-            if self.termination_condition(total_iter, delay_useds_cumsum[-1]):
-                break
+            # if self.termination_condition(total_iter, delay_useds_cumsum[-1]):
+            #     break
 
         log1 = {"iters": iters,
                 "losses": losses,
@@ -264,8 +301,11 @@ class DSpodFL:
         cond = cond or (self.prob_sgd_type == 'zero' and self.prob_aggr_type == 'full')
         return cond and ((total_iter + 1) % (D + B) == 0 or (total_iter + 1) % (D + B) == D)
 
-    def reset(self, graph_connectivity=0.4, labels_per_agent=None, prob_aggr_type='random', prob_sgd_type='random',
-              sim_type='eff', prob_dist_params=(0, 1), num_agents=10):
+    def reset(self, graph_connectivity=0.4, labels_per_agent=1, prob_aggr_type='full', prob_sgd_type='full',
+              sim_type='data_dist', prob_dist_params=(0.5, 0.5), num_agents=10):
+        
+        self.obs = [0]*self.num_agents
+        
         if graph_connectivity != self.graph_connectivity:
             self.reset_graph(graph_connectivity)
         if labels_per_agent != self.labels_per_agent:
@@ -278,13 +318,13 @@ class DSpodFL:
             self.reset_sim_type(sim_type)
         if prob_dist_params != self.prob_dist_params:
             self.reset_prob_dist_params(prob_dist_params)
-        if num_agents != self.num_agents:
-            self.reset_num_agents(num_agents)
 
         for agent in self.agents:
             # model, _, _ = utils.model_info(self.model_name, self.input_dim, self.num_classes, self.num_channels)
             # agent.reset(model=model)
             agent.reset()
+
+        return self.obs, {}
 
     def reset_graph(self, graph_connectivity):
         self.graph_connectivity = graph_connectivity
@@ -329,13 +369,3 @@ class DSpodFL:
             for j in list(self.graph.adj[i]):
                 self.agents[i].set_prob_aggr(self.agents[j], self.prob_aggrs[i][j])
                 self.agents[i].set_initial_prob_aggr(self.agents[j], self.initial_prob_aggrs[i][j])
-
-    def reset_num_agents(self, num_agents):
-        self.num_agents = num_agents
-        self.graph = self.generate_graph()
-        self.initial_prob_sgds = self.generate_prob_sgds(is_initial=True)
-        self.prob_aggrs = self.initial_prob_aggrs = self.generate_prob_aggrs(is_initial=True)
-        train_sets = utils.generate_train_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent)
-
-        models, criterion, self.model_dim = self.generate_models()
-        self.agents = self.generate_agents(self.initial_prob_sgds, models, criterion, train_sets)

@@ -10,6 +10,7 @@ import utils
 
 class Agent:
     def __init__(self,
+                 id,
                  initial_model,
                  criterion,
                  train_set,
@@ -18,6 +19,7 @@ class Agent:
                  learning_rate: float,
                  prob_sgd: float,
                  ):
+        self.id = id
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.initial_model = initial_model
         self.criterion = criterion
@@ -34,25 +36,45 @@ class Agent:
         self.aggregation_neighbors = []
         self.gradient = None
         self.aggregation = None
-        self.loss = None
+        self.loss = 0 # TODO: understand if this is a training or validation loss # was None
         self.accuracy = 0
         self.data_processed = None
         self.aggregation_count = None
-        self.v = 0
+        self.v = 0 #By default I assume you do not do SGD
 
-    def run_step1(self):
+    def run_step1(self, mixing_matrix):
+
+        # if you're selected to do an sgd step, do it and update the gradient, self.loss etc
         self.gradient = [0 for _ in range(self.len_params)]
         if self.v == 1:
-            self.gradient = self.event_data(choices(self.train_set, k=self.batch_size))
+            self.data_processed += self.batch_size
+            self.gradient = self.gradient_descent(choices(self.train_set, k=self.batch_size))
 
-        self.aggregation = [0 for _ in range(self.len_params)]
+        #vhat decides if j is in i's neighbor list
+        #at this point the neighbors list is already full with the correct vhats
+        #we determine the aggregation_neighbors as a subset
         self.aggregation_neighbors = []
         for neighbor in self.neighbors:
             if neighbor['v_hat'] == 1:
                 self.aggregation_neighbors.append(neighbor)
+                #we reset vhat for later
                 neighbor['v_hat'] = 0
-        if len(self.aggregation_neighbors) != 0:
-            self.aggregation = self.event_aggregation()
+
+        self.aggregation = [0 for _ in range(self.len_params)]
+        # if i has neighbors, aggregate their models into i
+        if len(self.aggregation_neighbors) != 0:            
+            for neighbor in self.aggregation_neighbors:
+
+                # aggregation_weight = self.calculate_aggregation_weight(neighbor['agent']) #old line, weight calculated on the fly
+                aggregation_weight = mixing_matrix[self.id][neighbor['agent'].id]
+
+                param_idx = 0
+                for param, param_neighbor in zip(self.w.parameters(), neighbor['agent'].get_w().parameters()):
+                    self.aggregation[param_idx] += aggregation_weight * (param_neighbor.data - param.data)
+                    param_idx += 1
+
+            self.aggregation_count += len(self.aggregation_neighbors)
+
 
     def run_step2(self):
         with torch.no_grad():
@@ -69,23 +91,6 @@ class Agent:
             if random() <= neighbor['prob_aggr']:
                 neighbor['v_hat'] = 1
                 neighbor['agent'].set_v_hat(self, 1)
-
-    def event_data(self, data):
-        self.data_processed += self.batch_size
-        return self.gradient_descent(data)
-
-    def event_aggregation(self):
-        aggregation = [0 for _ in range(self.len_params)]
-        for neighbor in self.aggregation_neighbors:
-            aggregation_weight = self.calculate_aggregation_weight(neighbor['agent'])
-
-            param_idx = 0
-            for param, param_neighbor in zip(self.w.parameters(), neighbor['agent'].get_w().parameters()):
-                aggregation[param_idx] += aggregation_weight * (param_neighbor.data - param.data)
-                param_idx += 1
-
-        self.aggregation_count += len(self.aggregation_neighbors)
-        return aggregation
 
     def gradient_descent(self, data):
         # We do the update on a temporary model, so that we can do the gradient descent
@@ -182,8 +187,10 @@ class Agent:
         return self.max_processing_time_usable() + self.max_transmission_time_usable()
 
     def add_neighbor(self, agent, prob_aggr, initial_prob_aggr):
-        self.neighbors.append({'agent': agent, 'prob_aggr': prob_aggr,
-                               'initial_prob_aggr': initial_prob_aggr, 'v_hat': 0})
+        self.neighbors.append({'agent': agent, 'prob_aggr': 1.0,
+                               'initial_prob_aggr': 1.0, 'v_hat': 0})
+        # self.neighbors.append({'agent': agent, 'prob_aggr': prob_aggr,
+        #                 'initial_prob_aggr': initial_prob_aggr, 'v_hat': 0})
 
     def clear_neighbors(self):
         self.neighbors = []
@@ -199,12 +206,6 @@ class Agent:
 
     def get_w(self):
         return self.w
-
-    def get_v_hat(self, neighbor_agent):
-        return self.find_neighbor(neighbor_agent)['v_hat']
-
-    def get_loss(self):
-        return self.loss
 
     def get_accuracy(self):
         return self.accuracy
