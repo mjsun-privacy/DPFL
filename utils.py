@@ -10,11 +10,11 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, models
 
 # from Custom_CNN import Custom_CNN
-from CNN import CNN
+from src.trainmodel.models import CNN
 
 
 def aux_info(dataset_name, model_name):
-    # Determine the number of classes and number of channels for the desired dataset
+    # Determine the number of classes and number of channels for the desired dataset, to customize CNN
     num_classes, num_channels = None, None
     if dataset_name in ["MNIST", "FMNIST"]:
         num_classes = 10
@@ -26,7 +26,7 @@ def aux_info(dataset_name, model_name):
         num_classes = 62
         num_channels = 1
 
-    # 1) Determine the appropriate pre-processing transform for the desired dataset
+    # 1) Determine the appropriate pre-processing transform for the desired dataset, transform image to float data 
     transform = None
     if dataset_name in ["MNIST", "FMNIST"]:
         transform = transforms.Compose([
@@ -59,6 +59,7 @@ def aux_info(dataset_name, model_name):
 def dataset_info(dataset_name, transform):
     train_set, test_set = None, None
 
+    # Download train and test set (all classes)
     if dataset_name == "MNIST":
         train_set = datasets.MNIST('../data', train=True, download=True, transform=transform)
         test_set = datasets.MNIST('../data', train=False, download=True, transform=transform)
@@ -146,6 +147,7 @@ def moving_average(x, window=32):
     return y
 
 
+# pandas DataFrame
 def moving_average_df(df, window=32):
     df_ret = pd.DataFrame()
     for column_name in df:
@@ -154,13 +156,28 @@ def moving_average_df(df, window=32):
     return df_ret
 
 
-def generate_train_sets(train_set, num_agents, num_classes, labels_per_agent):
+
+
+def generate_train_val_sets(train_set, num_agents, num_classes, labels_per_agent=None, Dirichlet_alpha=None, partion_name=None):
+    if partion_name == "by_labels":
+        return generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent)
+    elif partion_name == "Dirichlet":
+        return generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha)
+    else:
+        raise ValueError("Invalid partion name. Please specify either 'by_labels' or 'Dirichlet'.")
+
+
+
+# Method 1: split training data by labels, then divede each class by required num of data splits/shards, each agent responsible for unique data splits from assigned labels.  
+# 2. Divide data by Dir(a)
+# should also split testing set here, the original testing set contains all classes
+def generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent):
     # First shuffle the training set,
     # and then separate it to a dictionary where each entry only contains data coming from one class
     shuffled = sample(train_set, k=len(train_set))
     separated_by_output = {j: [data for data in shuffled if data[1] == j] for j in range(num_classes)}
 
-    # Determine number of data splits from each class for each agent
+    # Determine number of data splits from each class for each agent, 一个data split包含某个label下的一部分数据
     total_data_splits_count = num_agents * labels_per_agent
     data_splits_per_class = total_data_splits_count // num_classes
     rem_classes = total_data_splits_count % num_classes
@@ -188,9 +205,73 @@ def generate_train_sets(train_set, num_agents, num_classes, labels_per_agent):
         for j in chosen_splits:
             separated[i].extend(data_splits[j][0])
             available_splits[j] -= 1
+    
+    # Initialize dictionaries to hold training and validation data for each agent
+    train_sets = {i: [] for i in range(num_agents)}
+    val_sets = {i: [] for i in range(num_agents)}
 
-    separated_shuffled = [sample(separated[i], k=len(separated[i])) for i in range(len(separated))]
-    return separated_shuffled
+    # Shuffle and split each agent's data into training (75%) and validation (25%) sets
+    for i in range(num_agents):
+        agent_data = sample(separated[i], k=len(separated[i]))  # Shuffle the agent's data
+        train_size = int(0.75 * len(agent_data))
+        train_sets[i] = sample(agent_data[:train_size], k=train_size)  # Shuffle training set
+        val_sets[i] = sample(agent_data[train_size:], k=len(agent_data) - train_size)  # Shuffle validation set
+
+    return train_sets, val_sets
+
+    # separated_shuffled = [sample(separated[i], k=len(separated[i])) for i in range(len(separated))]
+    # return separated_shuffled
+
+
+# This can generate nonIIDness with unbalance sample number in each label.
+def generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha):
+
+    # Shuffle the training set
+    shuffled = sample(train_set, k=len(train_set))
+    
+    # Separate the shuffled training set by class
+    separated_by_output = {j: [data for data in shuffled if data[1] == j] for j in range(num_classes)}
+
+    # Initialize dictionaries to hold training and validation data for each agent
+    train_sets = {i: [] for i in range(num_agents)}
+    val_sets = {i: [] for i in range(num_agents)}
+
+    # Calculate the proportion of data for each agent and each class using Dirichlet distribution
+    total_splits_per_class = np.random.dirichlet([Dirichlet_alpha] * num_agents, num_classes)
+
+    # Distribute data splits to each agent
+    for j in range(num_classes):
+        # Calculate the number of data points for each agent and this class
+        class_data = separated_by_output[j]
+        num_data_points = len(class_data)
+        
+        # Ensure the indices list is shuffled to prevent order bias
+        class_indices = list(range(num_data_points))
+        np.random.shuffle(class_indices)
+        
+        # Calculate the split points for the data
+        split_points = (total_splits_per_class[j] * num_data_points).astype(int)
+        split_points[-1] = num_data_points  # Ensure the last split includes the remaining data
+        
+        # Split the indices for each agent
+        split_indices = np.split(class_indices, np.cumsum(split_points)[:-1])
+        
+        # Assign the split data to each agent
+        for i in range(num_agents):
+            train_sets[i].extend([class_data[idx] for idx in split_indices[i]])
+
+    # Split each agent's data into training (75%) and validation (25%) sets
+    for i in range(num_agents):
+        agent_data = sample(train_sets[i], k=len(train_sets[i]))  # Shuffle the agent's data
+        train_size = int(0.75 * len(agent_data))
+        train_sets[i] = agent_data[:train_size]
+        val_sets[i] = agent_data[train_size:]
+
+    return train_sets, val_sets
+
+
+
+
 
 
 def json_to_data(dirname, transform):

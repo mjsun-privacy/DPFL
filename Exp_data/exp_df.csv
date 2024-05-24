@@ -1,0 +1,4 @@
+Model_name,Dataset_name,Num_agents,Graph_connectivity,Labels_per_agent,Batch_size,Learning_rate,Max_episode_steps,Seed
+SVM,FMNIST,10,0.2,1,16,0.01,1000,42
+SVM,FMNIST,10,0.4,2,16,0.01,1000,123
+SVM,FMNIST,10,0.6,2,16,0.01,1000,456
