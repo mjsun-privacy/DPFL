@@ -1,8 +1,10 @@
 import os
 import random
 
-from src.method.DPFL import DPFL
-from src.method.DSpodFL import DSpodFL
+from src.methods.DPFL.DPFL import DPFL
+from src.methods.DSpodFL.DSpodFL import DSpodFL
+from src.methods.PureLocal.PureLocal import PureLocal
+
 import gymnasium as gym
 import torch
 from stable_baselines3 import PPO
@@ -38,7 +40,7 @@ def main(row_number, method_name):
     Num_agents = params['Num_agents']
     Graph_connectivity = params['Graph_connectivity']
     Labels_per_agent = params['Labels_per_agent']
-    alpha = params['Dirichlet_alpha']
+    # alpha = params['Dirichlet_alpha']
     Batch_size = params['Batch_size']
     Learning_rate = params['Learning_rate']
     Seed = params['Seed']
@@ -47,14 +49,14 @@ def main(row_number, method_name):
     if(method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = Model_name,
-           dataset_name = Dataset_name,
+           model_name = 'CNN',
+           dataset_name = 'MNIST',
            partition_name = 'by_labels',
            num_epochs = 1,
-           num_agents = Num_agents,
-           graph_connectivity = Graph_connectivity,
-           labels_per_agent = Labels_per_agent,
-           Dirichlet_alpha = alpha,
+           num_agents = 10,
+           graph_connectivity = 100,
+           labels_per_agent = 2,
+           Dirichlet_alpha = 0,
            batch_size = 16,
            learning_rate = 0.01,
            prob_aggr_type = 'full',
@@ -74,29 +76,30 @@ def main(row_number, method_name):
     # Callback during training
     # eval_callback = EvalCallback(env...)  record logs during RL training
     # Create a PPO model
-       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 1200)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
+       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 600)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
        RL.learn(total_timesteps = 12000, progress_bar=True)     # 10000 
     # Save the model
        RL.save("PPO_saved") 
-    #del RL  # delete trained model to demonstrate loading
+       del RL  # delete trained model to demonstrate loading
     # Load the trained agent
-    #RL = PPO.load("PPO_saved", env=env)
+       RL = PPO.load("PPO_saved", env=env)
     # Evaluate the model
        vec_env = RL.get_env()                     # sb3 and gym have different interface, here must use vec_env of sb3
        obs = vec_env.reset()                      # clear model
-       rewards = [] 
+       accs = []
 
        for i in range (1000):                       # num of step()    # 1000
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
-           rewards.append(reward)
+           # record acc
+           accs.append(info['val_acc'])
                
     # record all metrics based on a row of parameters in one table
        metric_df = pd.DataFrame({
-        'iteration': range(1000),
-        'rewards': rewards})
+        'iteration': range(5000),
+        'test_acc': accs})
        metric_df.to_csv(os.path.join(folder_path, '{row_number}_{method_name}.csv'), index=False)
 
 
@@ -122,7 +125,22 @@ def main(row_number, method_name):
          exp.run()
         
     elif(method_name  == 'Purelocal'):
+        exp = PureLocal(
+                model_name= Model_name,
+                dataset_name= Dataset_name,
+                partition_name = 'by_labels',
+                num_epochs= 10,
+                num_agents= Num_agents,
+                graph_connectivity= Graph_connectivity,     # should note this param in other algs
+                labels_per_agent= Labels_per_agent,
+                Dirichlet_alpha= alpha,
+                batch_size= 16,
+                learning_rate= 0.01,
+                seed= Seed)
+        exp.run()
+
         
+
    
         
 
@@ -136,14 +154,11 @@ if __name__ == '__main__':
     parser.add_argument('row_number', type=int, help="Row number from the parameter table")
     parser.add_argument('method_name', type=str, help="choose a method to run") 
     args = parser.parse_args()
-    main(args.row_number)
+    main(args.row_number, args.method_name)
 
 
 
     
-
-
-
 
 
 

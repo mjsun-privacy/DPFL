@@ -10,7 +10,33 @@ from gymnasium import spaces
 import numpy as np
 
 
-class b:
+
+class A:
+     def __init__(self):
+        self.acc = []
+
+    
+     def method(self):
+         a = 1
+         b = 2
+         self.acc.append(a + b)
+
+
+b = A()
+for i in range(10):
+    b.method()
+    
+
+
+
+
+
+
+
+
+
+
+""" class b:
     def __init__(self, seed=None):
         self.seed = seed
         self.random_state = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
@@ -27,7 +53,7 @@ class b:
         return graph
 
 a = b(20)
-a.generate_graph(10, 0.2)
+a.generate_graph(10, 0.2) """
 
 # Example list of floats
 """ float_list = [1.1, 2.2, 3.3]

@@ -171,6 +171,7 @@ def generate_train_val_sets(train_set, num_agents, num_classes, labels_per_agent
 # Method 1: split training data by labels, then divede each class by required num of data splits/shards, each agent responsible for unique data splits from assigned labels.  
 # 2. Divide data by Dir(a)
 # should also split testing set here, the original testing set contains all classes
+#* we evaluate each local model on all the available test data belonging to the classes in its local task.
 def generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent):
     # First shuffle the training set,
     # and then separate it to a dictionary where each entry only contains data coming from one class

@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# Other nn models are imported in utils.py, no need to write them 
 class CNN(nn.Module):
     def __init__(self, n_classes, n_channels):
         super(CNN, self).__init__()
