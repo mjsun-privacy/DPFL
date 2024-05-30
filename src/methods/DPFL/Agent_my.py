@@ -15,6 +15,7 @@ class Agent_DPFL:
                  criterion,
                  train_set,
                  val_set,
+                 test_set,
                  batch_size: int,
                  learning_rate: float,
                  prob_sgd: float,
@@ -25,6 +26,7 @@ class Agent_DPFL:
         self.criterion = criterion
         self.train_set = train_set
         self.val_set = val_set
+        self.test_set = test_set
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.prob_sgd = self.initial_prob_sgd = prob_sgd
@@ -181,7 +183,7 @@ class Agent_DPFL:
 
 
     def calculate_accuracy(self):                       
-        self.accuracy = utils.calculate_accuracy(self.w, self.val_set)
+        self.accuracy = utils.calculate_accuracy(self.w, self.test_set)
         return self.accuracy
 
    
@@ -281,6 +283,9 @@ class Agent_DPFL:
 
     def set_val_set(self, val_set):
         self.val_set = val_set
+
+    def set_test_set(self, test_set):
+        self.test_set = test_set
 
     def set_prob_sgd(self, prob_sgd):
         self.prob_sgd = prob_sgd

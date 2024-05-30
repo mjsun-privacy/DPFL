@@ -158,11 +158,11 @@ def moving_average_df(df, window=32):
 
 
 
-def generate_train_val_sets(train_set, num_agents, num_classes, labels_per_agent=None, Dirichlet_alpha=None, partion_name=None):
+def generate_train_val_test_sets(train_set, num_agents, num_classes, labels_per_agent=None, Dirichlet_alpha=None, partion_name=None):
     if partion_name == "by_labels":
-        return generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent)
+        return generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent)
     elif partion_name == "Dirichlet":
-        return generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha)
+        return generate_train_val_test_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha)
     else:
         raise ValueError("Invalid partion name. Please specify either 'by_labels' or 'Dirichlet'.")
 
@@ -172,7 +172,7 @@ def generate_train_val_sets(train_set, num_agents, num_classes, labels_per_agent
 # 2. Divide data by Dir(a)
 # should also split testing set here, the original testing set contains all classes
 #* we evaluate each local model on all the available test data belonging to the classes in its local task.
-def generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent):
+def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent):
     # First shuffle the training set,
     # and then separate it to a dictionary where each entry only contains data coming from one class
     shuffled = sample(train_set, k=len(train_set))
@@ -210,22 +210,25 @@ def generate_train_val_sets_by_labels(train_set, num_agents, num_classes, labels
     # Initialize dictionaries to hold training and validation data for each agent
     train_sets = {i: [] for i in range(num_agents)}
     val_sets = {i: [] for i in range(num_agents)}
+    test_sets = {i: [] for i in range(num_agents)}
 
     # Shuffle and split each agent's data into training (75%) and validation (25%) sets
     for i in range(num_agents):
         agent_data = sample(separated[i], k=len(separated[i]))  # Shuffle the agent's data
-        train_size = int(0.75 * len(agent_data))
+        train_size = int(0.70 * len(agent_data))
+        val_size = int(0.20 * len(agent_data))
         train_sets[i] = sample(agent_data[:train_size], k=train_size)  # Shuffle training set
-        val_sets[i] = sample(agent_data[train_size:], k=len(agent_data) - train_size)  # Shuffle validation set
+        val_sets[i] = sample(agent_data[train_size:train_size + val_size], k= val_size) 
+        test_sets[i] = sample(agent_data[train_size + val_size:], k=len(agent_data) - train_size - val_size)  
 
-    return train_sets, val_sets
+    return train_sets, val_sets, test_sets
 
     # separated_shuffled = [sample(separated[i], k=len(separated[i])) for i in range(len(separated))]
     # return separated_shuffled
 
 
 # This can generate nonIIDness with unbalance sample number in each label.
-def generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha):
+def generate_train_val_test_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha):
 
     # Shuffle the training set
     shuffled = sample(train_set, k=len(train_set))
@@ -236,6 +239,7 @@ def generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirich
     # Initialize dictionaries to hold training and validation data for each agent
     train_sets = {i: [] for i in range(num_agents)}
     val_sets = {i: [] for i in range(num_agents)}
+    test_sets = {i: [] for i in range(num_agents)}
 
     # Calculate the proportion of data for each agent and each class using Dirichlet distribution
     total_splits_per_class = np.random.dirichlet([Dirichlet_alpha] * num_agents, num_classes)
@@ -264,14 +268,13 @@ def generate_train_val_sets_Dirichlet(train_set, num_agents, num_classes, Dirich
     # Split each agent's data into training (75%) and validation (25%) sets
     for i in range(num_agents):
         agent_data = sample(train_sets[i], k=len(train_sets[i]))  # Shuffle the agent's data
-        train_size = int(0.75 * len(agent_data))
+        train_size = int(0.70 * len(agent_data))
+        val_size = int(0.20 * len(agent_data))
         train_sets[i] = agent_data[:train_size]
-        val_sets[i] = agent_data[train_size:]
+        val_sets[i] = agent_data[train_size:train_size + val_size]
+        test_sets[i] = agent_data[train_size + val_size:]
 
-    return train_sets, val_sets
-
-
-
+    return train_sets, val_sets, test_sets
 
 
 

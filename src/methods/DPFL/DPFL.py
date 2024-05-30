@@ -66,11 +66,11 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         self.graph = self.generate_graph()                                              # changes when calling self.generate_graph
         self.initial_prob_sgds = self.generate_prob_sgds(is_initial=True)
         self.prob_aggrs = self.initial_prob_aggrs = self.generate_prob_aggrs(is_initial=True)
-        train_sets, val_sets = utils.generate_train_val_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
+        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
                                                              self.Dirichlet_alpha, self.partition_name)
         models, criterion, self.model_dim = self.generate_models()
 
-        self.agents = self.generate_agents(self.initial_prob_sgds, models, criterion, train_sets, val_sets)
+        self.agents = self.generate_agents(self.initial_prob_sgds, models, criterion, train_sets, val_sets, test_sets)
         self.DandB = utils.determine_DandB(DandB, self.initial_prob_sgds, self.initial_prob_aggrs)
         print(self.DandB)
         
@@ -150,7 +150,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         models = [models[0] for _ in models]
         return models, criterion, model_dim
 
-    def generate_agents(self, prob_sgds, models, criterion, train_sets, val_sets):
+    def generate_agents(self, prob_sgds, models, criterion, train_sets, val_sets, test_sets):
         agents = []
         #* Agents atrributes are static, their id attribute and test_data attribute are corresponded, will not be messed up
         for i in range(self.num_agents):
@@ -160,6 +160,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                 criterion=criterion,
                 train_set=train_sets[i],
                 val_set=val_sets[i],
+                test_set=test_sets[i],
                 batch_size=self.batch_size,
                 learning_rate=self.learning_rate,
                 prob_sgd=prob_sgds[i]
@@ -214,7 +215,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                 total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
             
-                val_acc = 0.0
+                test_acc = 0.0
                 val_loss = 0.0
                 cpu_used, max_cpu_usable = 0, 0
                 bandwidth_used, max_bandwidth_usable = 0, 0
@@ -225,12 +226,12 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                 for j in range(self.num_agents):
                     self.agents[j].run_step1(mixing_matrix)
 
-                val_accs = [0.0]*self.num_agents
+                test_accs = [0.0]*self.num_agents
                 val_losses = [0.0]*self.num_agents 
                 
                 for j in range(self.num_agents):
-                    val_acc += float(self.agents[j].calculate_accuracy())   # float (64)
-                    val_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
+                    test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
+                    test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
                     val_loss +=float(self.agents[j].calculate_val_loss()) 
                     val_losses[j] = self.agents[j].calculate_val_loss()  # python defult to be float 64
 
@@ -246,7 +247,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                 for j in range(self.num_agents):
                     self.agents[j].run_step2()
 
-                accuracies.append(val_acc / self.num_agents)
+                accuracies.append(test_acc / self.num_agents)
                 obs = np.array(val_losses, dtype= np.float64)
                 reward = - val_loss      #* no, self.loss is training loss #TODO: make sure this is actually the sum of losses on the validation set by checking semantics of self.loss 
                 # a RL episode end with terminated state, i.e., achieve final goal:
@@ -259,8 +260,8 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                    print(f"Terminated! val_loss ={val_loss}")
                    reward += 100              
                 
-            print(reward, val_acc / self.num_agents)
-            info['val_acc']= accuracies
+            print(reward, test_acc / self.num_agents)
+            info['test_acc']= accuracies
             return obs, reward, terminated, truncated,  info     # newest gym have added truncated value and info
         
     """   # I want to plot iters and losses
@@ -386,13 +387,14 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
             for j in list(self.graph.adj[i]):
                 self.agents[i].add_neighbor(self.agents[j], self.prob_aggrs[i][j], self.initial_prob_aggrs[i][j])
 
-    def reset_train_val_sets(self, labels_per_agent):
+    def reset_train_val_test_sets(self, labels_per_agent):
         self.labels_per_agent = labels_per_agent
-        train_sets, val_sets = utils.generate_train_val_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
+        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
                                                              self.Dirichlet_alpha, self.partition_name)
         for i in range(self.num_agents):
             self.agents[i].set_train_set(train_sets[i])
             self.agents[i].set_val_set(val_sets[i])
+            self.agents[i].set_test_set(test_sets[i])
              
 
 
