@@ -30,7 +30,10 @@ def main(row_number, method_name):
     # Save each result to e.g., 47.csv, then plot it by seaborn or matplot. In this way, we can save time if fault arises
     # simid = int(sys.argv[1])      
     # print("First argument:", simid)
-    folder_path = r'C:\Users\MingjingSun\git\5.7 based on 4.30\DSpodPFL_5.7\Exp_data'
+    # folder_path = r'C:\Users\MingjingSun\git\5.7 based on 4.30\DSpodPFL_5.7\Exp_data'
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.join(current_dir, 'Exp_data')
     exp_path = os.path.join(folder_path, 'exp_df.csv')
     params_df = pd.read_csv(exp_path)
     params = params_df.iloc[row_number - 1].to_dict()  # Subtract 1 since row numbers start from 1
