@@ -49,8 +49,8 @@ def main(row_number, method_name):
     if(method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'CNN',
-           dataset_name = 'MNIST',
+           model_name = 'SVM',
+           dataset_name = 'FMNIST',
            partition_name = 'by_labels',
            num_epochs = 1,
            num_agents = 10,
@@ -65,7 +65,7 @@ def main(row_number, method_name):
            prob_dist_params = (0.5, 0.5),    # (alpha, beta) or (min, max)
            termination_delay = 500,
            DandB = (None,1),
-           max_episode_steps = 1000,
+           max_episode_steps = 600,
            seed = Seed
            )      #* max_episode_steps = n_steps in PPO()
 

@@ -435,5 +435,4 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         torch.cuda.manual_seed(seed)
 
 
-    def get_accs(self):
-        return self.accuracies
+ 
