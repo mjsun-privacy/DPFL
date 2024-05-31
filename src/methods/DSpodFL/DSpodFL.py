@@ -23,6 +23,7 @@ class DSpodFL:
                  graph_connectivity: float,
                  labels_per_agent: int,
                  Dirichlet_alpha: float,
+                 data_size: float,
                  batch_size: int,
                  learning_rate: float,
                  prob_aggr_type: str,
@@ -47,21 +48,23 @@ class DSpodFL:
         self.prob_dist_params = prob_dist_params
         self.termination_delay = termination_delay
         self.partition_name = partition_name
+        self.data_size = data_size
 
         self.num_classes, transform, self.num_channels = utils.aux_info(dataset_name, model_name)
         self.train_set, self.global_val_set, self.input_dim = utils.dataset_info(dataset_name, transform)
-        print(f"train={len(self.train_set)}, test={len(self.test_set)}")
+        print(f"train={len(self.train_set)}, test={len(self.global_val_set)}")
 
         self.seed = seed  
         np.random.seed(self.seed)
         self.graph = self.generate_graph()
-        self.initial_prob_sgds = self.generate_prob_sgds(is_initial=True)
+        self.initial_prob_sgds = self.generate_prob_sgds()
         self.prob_aggrs = self.initial_prob_aggrs = self.generate_prob_aggrs(is_initial=True)
-        train_sets, val_sets = utils.generate_train_val_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
+        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.data_size, self.labels_per_agent, 
                                                              self.Dirichlet_alpha, self.partition_name)
         models, criterion, self.model_dim = self.generate_models()
+        self.accuracies = []
 
-        self.agents = self.generate_agents(self.initial_prob_sgds, models, criterion, train_sets, val_sets)
+        self.agents = self.generate_agents(self.initial_prob_sgds, models, criterion, train_sets, val_sets, test_sets)
         self.DandB = utils.determine_DandB(DandB, self.initial_prob_sgds, self.initial_prob_aggrs)
         print(self.DandB)
 
@@ -70,16 +73,16 @@ class DSpodFL:
             graph = nx.random_geometric_graph(self.num_agents, self.graph_connectivity)
             if nx.is_k_edge_connected(graph, 1):
                 break
+        # Debug: everytime call this method, plot it
+        nx.draw(graph, with_labels=True)    # neteorkx graph has itself label 0,1..., see relabel method
+        plt.show()
         return graph
 
-    def generate_prob_sgds(self, is_initial=False):
-        if is_initial:
-            if self.prob_sgd_type == 'random':
-                return [uniform(self.prob_dist_params[0], self.prob_dist_params[1]) for _ in range(self.num_agents)]
-            elif self.prob_sgd_type == 'beta':
-                return [betavariate(self.prob_dist_params[0], self.prob_dist_params[1]) for _ in range(self.num_agents)]
-        elif self.prob_sgd_type in ['random', 'beta']:
-            return self.initial_prob_sgds
+    def generate_prob_sgds(self):
+        if self.prob_sgd_type == 'random':
+            return [uniform(self.prob_dist_params[0], self.prob_dist_params[1]) for _ in range(self.num_agents)]
+        elif self.prob_sgd_type == 'beta':
+            return [betavariate(self.prob_dist_params[0], self.prob_dist_params[1]) for _ in range(self.num_agents)]
         elif self.prob_sgd_type == 'full':
             return [1 for _ in range(self.num_agents)]
         elif self.prob_sgd_type == 'zero':
@@ -113,14 +116,16 @@ class DSpodFL:
         models = [models[0] for _ in models]
         return models, criterion, model_dim
 
-    def generate_agents(self, prob_sgds, models, criterion, train_sets, val_sets):
+    def generate_agents(self, prob_sgds, models, criterion, train_sets, val_sets, test_sets):
         agents = []
         for i in range(self.num_agents):
             agent_i = Agent(
+                id=i,
                 initial_model=models[i],
                 criterion=criterion,
                 train_set=train_sets[i],
                 val_set=val_sets[i],
+                test_set=test_sets[i],
                 batch_size=self.batch_size,
                 learning_rate=self.learning_rate,
                 prob_sgd=prob_sgds[i]
@@ -138,7 +143,7 @@ class DSpodFL:
         total_iter = 0
 
         iters, iters_sampled = [], []
-        losses, accuracies = [], []
+        losses = []
       
         for k in range(self.num_epochs):
             print(f"epoch: {k}")
@@ -147,7 +152,7 @@ class DSpodFL:
                 total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
                 loss = 0.0
-                val_acc = 0.0
+                test_acc = 0.0
                 val_loss = 0.0
                 cpu_used, max_cpu_usable = 0, 0
                 bandwidth_used, max_bandwidth_usable = 0, 0
@@ -158,12 +163,12 @@ class DSpodFL:
                 for j in range(self.num_agents):
                     self.agents[j].run_step1()
 
-                val_accs = [0.0]*self.num_agents
+                test_accs = [0.0]*self.num_agents
                 val_losses = [0.0]*self.num_agents
 
                 for j in range(self.num_agents):
-                    val_acc += float(self.agents[j].calculate_accuracy())   # float (64)
-                    val_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
+                    test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
+                    test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
                     val_loss +=float(self.agents[j].calculate_val_loss()) 
                     val_losses[j] = self.agents[j].calculate_val_loss() 
 
@@ -184,10 +189,10 @@ class DSpodFL:
                     self.agents[j].run_step2()
 
                 iters.append(total_iter)
-                accuracies.append(val_acc / self.num_agents)
-
+                self.accuracies.append(test_acc / self.num_agents)
+                print(test_acc / self.num_agents)
         log1 = {"iters": iters,
-                "test_accuracy": accuracies,}
+                "test_accuracy": self.accuracies,}
 
         return log1
 
@@ -197,7 +202,7 @@ class DSpodFL:
         if graph_connectivity != self.graph_connectivity:
             self.reset_graph(graph_connectivity)
         if labels_per_agent != self.labels_per_agent:
-            self.reset_train_sets(labels_per_agent)
+            self.reset_train_val_test_sets(labels_per_agent)
         if prob_aggr_type != self.prob_aggr_type:
             self.reset_prob_aggrs(prob_aggr_type)
         if prob_sgd_type != self.prob_sgd_type:
@@ -220,13 +225,14 @@ class DSpodFL:
             for j in list(self.graph.adj[i]):
                 self.agents[i].add_neighbor(self.agents[j], self.prob_aggrs[i][j], self.initial_prob_aggrs[i][j])
 
-    def reset_train_sets(self, labels_per_agent):
+    def reset_train_val_test_sets(self, labels_per_agent):
         self.labels_per_agent = labels_per_agent
-        train_sets, val_sets = utils.generate_train_val_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
+        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
                                                              self.Dirichlet_alpha, self.partition_name)
         for i in range(self.num_agents):
             self.agents[i].set_train_set(train_sets[i])
             self.agents[i].set_val_set(val_sets[i])
+            self.agents[i].set_test_set(test_sets[i])
 
     def reset_prob_aggrs(self, prob_aggr_type):
         self.prob_aggr_type = prob_aggr_type

@@ -10,8 +10,12 @@ from gymnasium import spaces
 import numpy as np
 
 
+a= [{'test_acc': [5,4,3], 'TimeLimit.truncated': False}]  
+b= a[0]['test_acc']
+print(b)
 
-class A:
+
+""" class A:
      def __init__(self):
         self.acc = []
 
@@ -25,7 +29,7 @@ class A:
 b = A()
 for i in range(10):
     b.method()
-    
+     """
 
 
 

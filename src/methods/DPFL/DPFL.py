@@ -22,6 +22,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                  graph_connectivity: float,
                  labels_per_agent: int,
                  Dirichlet_alpha: float,
+                 data_size: float,
                  batch_size: int,
                  learning_rate: float,
                  prob_aggr_type: str,
@@ -47,6 +48,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         self.prob_dist_params = prob_dist_params
         self.termination_delay = termination_delay
         self.partition_name = partition_name
+        self.data_size = data_size
 
         #Call constructor of parent class and specify action and state spaces
         # inherit attributes action_space and obs_space from Class gym.env and redefine     # mj: in multi rl, env, action and state spaces should be in Class Agents
@@ -66,7 +68,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         self.graph = self.generate_graph()                                              # changes when calling self.generate_graph
         self.initial_prob_sgds = self.generate_prob_sgds(is_initial=True)
         self.prob_aggrs = self.initial_prob_aggrs = self.generate_prob_aggrs(is_initial=True)
-        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.labels_per_agent, 
+        train_sets, val_sets, test_sets = utils.generate_train_val_test_sets(self.train_set, self.num_agents, self.num_classes, self.data_size, self.labels_per_agent, 
                                                              self.Dirichlet_alpha, self.partition_name)
         models, criterion, self.model_dim = self.generate_models()
 

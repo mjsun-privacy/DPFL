@@ -22,8 +22,7 @@ import pandas as pd
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type(torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
 
-def main(row_number, method_name):
-    
+def main(row_number):  
     # Load parameters from the pandas DataFrame
     # read the column of Parameters (e.g., num of agents, time slot) in Pandas Data Frame as x axis, and get metric e.g., val loss as y axis, 
     # and pass the parameter and seed here to run main.py. 
@@ -32,36 +31,47 @@ def main(row_number, method_name):
     # print("First argument:", simid)
     # folder_path = r'C:\Users\MingjingSun\git\5.7 based on 4.30\DSpodPFL_5.7\Exp_data'
 
+    # Load parameters from the pandas DataFrame
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    folder_path = os.path.join(current_dir, 'Exp_data')
-    exp_path = os.path.join(folder_path, 'exp_df.csv')
-    params_df = pd.read_csv(exp_path)
-    params = params_df.iloc[row_number - 1].to_dict()  # Subtract 1 since row numbers start from 1
+    exp_data_dir = os.path.join(current_dir, 'Exp_data')
+    exp_path = os.path.join(exp_data_dir, 'exp_df.csv')
+    
+    # Create a folder to save the results
+    data_dir = os.path.join(exp_data_dir, 'data')
+    os.makedirs(data_dir, exist_ok=True)
 
+    params_df = pd.read_csv(exp_path)
+    params = params_df.iloc[row_number - 1].to_dict()    # [1-1] access first row of params
+
+    Method_name = params['Method_name']
     Model_name = params['Model_name']
     Dataset_name = params['Dataset_name']
     Num_agents = params['Num_agents']
     Graph_connectivity = params['Graph_connectivity']
-    Labels_per_agent = params['Labels_per_agent']
-    # alpha = params['Dirichlet_alpha']
-    Batch_size = params['Batch_size']
-    Learning_rate = params['Learning_rate']
+    Labels_per_agent = 0   # params['Labels_per_agent']
+    alpha = params['Dirichlet_alpha']
+    Partition_name = params['Partition_name']
+    Data_size = params['Data_size']
+    # Batch_size = params['Batch_size']
+    # Learning_rate = params['Learning_rate']
     Seed = params['Seed']
+    Batch_size = 16
+    Learning_rate = 0.01
 
-
-    if(method_name == 'DPFL'):
+    if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'SVM',
-           dataset_name = 'FMNIST',
-           partition_name = 'by_labels',
+           model_name = Model_name,
+           dataset_name = Dataset_name,
+           partition_name = Partition_name,
            num_epochs = 1,
-           num_agents = 10,
-           graph_connectivity = 100,
-           labels_per_agent = 2,
-           Dirichlet_alpha = 0,
-           batch_size = 16,
-           learning_rate = 0.01,
+           num_agents = Num_agents,
+           graph_connectivity = Graph_connectivity,
+           labels_per_agent = Labels_per_agent,
+           Dirichlet_alpha = alpha,
+           data_size = Data_size,
+           batch_size = Batch_size,
+           learning_rate = Learning_rate,
            prob_aggr_type = 'full',
            prob_sgd_type = 'full',
            sim_type = 'data_dist',
@@ -82,7 +92,7 @@ def main(row_number, method_name):
        RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 500)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 5000, progress_bar=True)     # 10000 
+       RL.learn(total_timesteps = 5000, progress_bar=True)     # 5000
     # Save the model
        RL.save("PPO_saved") 
        del RL  # delete trained model to demonstrate loading
@@ -97,27 +107,29 @@ def main(row_number, method_name):
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
            # record acc
-           accs.append(info['val_acc'])
+           accs.extend(info[0]['test_acc'])
                
     # record all metrics based on a row of parameters in one table
+       
        metric_df = pd.DataFrame({
-        'iteration': range(5000),
+        'iteration': range(len(accs)),
         'test_acc': accs})
-       metric_df.to_csv(os.path.join(folder_path, '{row_number}_{method_name}.csv'), index=False)
+       metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
 
 
-    elif(method_name == 'DSpodFL'):
+    elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
                  model_name= Model_name,
                  dataset_name= Dataset_name,
-                 partition_name = 'by_labels',   
+                 partition_name = Partition_name,   
                  num_epochs= 10,
                  num_agents= Num_agents,
                  graph_connectivity= Graph_connectivity,     # should note this param in other algs
                  labels_per_agent= Labels_per_agent,
                  Dirichlet_alpha= alpha,
-                 batch_size= 16,
-                 learning_rate= 0.01,
+                 data_size = Data_size,
+                 batch_size= Batch_size,
+                 learning_rate= Learning_rate,
                  prob_aggr_type= 'full',
                  prob_sgd_type= 'full',
                  sim_type= 'data_dist',
@@ -126,26 +138,40 @@ def main(row_number, method_name):
                  DandB= (None,1),
                  seed= Seed)
          exp.run()
+         metric_df = pd.DataFrame({
+        'iteration': range(len(exp.accuracies)),
+        'test_acc': exp.accuracies})
+         metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
         
-    elif(method_name  == 'Purelocal'):
+
+    elif(Method_name  == 'Purelocal'):
         exp = PureLocal(
                 model_name= Model_name,
                 dataset_name= Dataset_name,
-                partition_name = 'by_labels',
+                partition_name = Partition_name,
                 num_epochs= 10,
                 num_agents= Num_agents,
                 graph_connectivity= Graph_connectivity,     # should note this param in other algs
                 labels_per_agent= Labels_per_agent,
                 Dirichlet_alpha= alpha,
-                batch_size= 16,
-                learning_rate= 0.01,
+                data_size = Data_size,
+                batch_size= Batch_size,
+                learning_rate= Learning_rate,
                 seed= Seed)
         exp.run()
-
+        metric_df = pd.DataFrame({
+        'iteration': range(len(exp.accuracies)),
+        'test_acc': exp.accuracies})
+        metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
+      
+    else:
+        print("Method not found!")
         
 
-   
-        
+# Debug
+""" row_number = 1
+method_name = 'DPFL'
+main(row_number, method_name) """
 
 
 
@@ -154,10 +180,13 @@ if __name__ == '__main__':
     # pass parameters to experiment from Pandasparameter DataFrame
     # Read parameters from the DataFrame
     parser = argparse.ArgumentParser()
-    parser.add_argument('row_number', type=int, help="Row number from the parameter table")
-    parser.add_argument('method_name', type=str, help="choose a method to run") 
+    parser.add_argument('row_number', type=int, help="Row number from parameter DataFrame")
+    """ parser.add_argument('Method_name', type=str, help="choose a method to run: DPFL, DSpodFL, PureLocal") 
+    parser.add_argument('NN_name', type=str, help="choose a NN model: SVM, CNN, VGG11") 
+    parser.add_argument('Dataset_name', type=str, help="choose a dataset: MNIST, FMNIST, FEMINIST, CIFAR10") 
+    parser.add_argument('Partition_name', type=str, help="choose partition style: by_labels, Dirichlet")  """
     args = parser.parse_args()
-    main(args.row_number, args.method_name)
+    main(args.row_number)
 
 
 
@@ -178,23 +207,3 @@ if __name__ == '__main__':
 
 
 
-
-    # instantiate pararell envs: but in differnet envs, graph will be different.
-    # pararell env with sb3, or gym.make with gym to instantiate the single env, gym.vector.env. to instantiate pararell envs.
-    """ vec_env = make_vec_env(DSpodFL, n_envs = 4, 
-                           env_kwargs=dict(model_name = 'SVM', 
-                                       dataset_name = 'FMNIST', 
-                                       num_epochs = 1, 
-                                       num_agents = 10, 
-                                       graph_connectivity = 0.4, 
-                                       labels_per_agent = 1, 
-                                       batch_size = 16, 
-                                       learning_rate = 0.01, 
-                                       prob_aggr_type = 'full', 
-                                       prob_sgd_type = 'full', 
-                                       sim_type = 'data_dist', 
-                                       prob_dist_params = (0.5, 0.5), 
-                                       termination_delay = 500, 
-                                       DandB = (None,1))
-                                       )  
-    """

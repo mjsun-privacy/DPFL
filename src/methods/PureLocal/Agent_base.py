@@ -16,6 +16,7 @@ class Agent_base:
                  criterion,
                  train_set,
                  val_set,
+                 test_set,
                  batch_size: int,
                  learning_rate: float,
                  ):                       #Multi RL: should have parameter gym env by each agent
@@ -25,6 +26,7 @@ class Agent_base:
         self.criterion = criterion
         self.train_set = train_set
         self.val_set = val_set
+        self.test_set = test_set
         self.batch_size = batch_size
         self.learning_rate = learning_rate
 
@@ -39,8 +41,8 @@ class Agent_base:
                       #* self.loss = training loss
         self.accuracy = 0.0
         self.val_loss = 0.0
-        self.data_processed = None
-        self.aggregation_count = None
+        self.data_processed = 0
+        self.aggregation_count = 0
 
     
     def run_step1(self):
@@ -107,7 +109,7 @@ class Agent_base:
 
 
     def calculate_accuracy(self):                       
-        self.accuracy = utils.calculate_accuracy(self.w, self.val_set)
+        self.accuracy = utils.calculate_accuracy(self.w, self.test_set)
         return self.accuracy
 
    
@@ -129,3 +131,6 @@ class Agent_base:
 
     def set_val_set(self, val_set):
         self.val_set = val_set
+
+    def set_test_set(self, test_set):
+        self.test_set = test_set
