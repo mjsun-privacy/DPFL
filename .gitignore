@@ -3,7 +3,3 @@
 output/
 # src/methods/DisPFL-master/
 
-PPO_saved.zip
-outfiles/
-slurm.sh
-slurmgpu.sh
