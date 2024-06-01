@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
-#SBATCH -J dspoddfl
-#SBATCH --time=0-6:00:00
-#SBATCH --array=0-107
+#SBATCH -J DPFL
+#SBATCH --time=0-3:00:00
+#SBATCH --array=0-80
 #SBATCH -p epyc2
 #SBATCH -o outfiles/%A_%a.out
 
