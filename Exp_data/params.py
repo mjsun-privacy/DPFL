@@ -19,12 +19,12 @@ params = {
     'Method_name': ['DPFL', 'DSpodFL', 'PureLocal'],
     'Model_name': ['SVM'],   #, 'CNN', 'VGG11'
     'Dataset_name': [ 'FMNIST'], #'MNIST', , 'FEMNIST', 'CIFAR10'
-    'Num_agents': [10, 30, 60], 
+    'Num_agents': [10, 20, 30], 
     'Graph_connectivity': [100],
      #'Labels_per_agent': [1, 2, 3, 4, 5, 6],      product conflicts with Dirichlet_alpha in DataFrame
     'Dirichlet_alpha': [0.1,  0.4, 1.0],
     'Partition_name': ['Dirichlet'],    #, 'by_label'
-    'Data_size': [0.01, 0.05, 0.1, 0.5],
+    'Data_size': [0.02, 0.05, 0.1],
     #'Batch_size': [16, 16, 16, 16 ],
     #'Learning_rate': [0.01, 0.01, 0.01],
     #'Max_episode_steps': [1000, 1000, 1000],

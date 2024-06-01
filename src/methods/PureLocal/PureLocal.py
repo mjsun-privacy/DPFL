@@ -81,17 +81,17 @@ class PureLocal:
 
      def run(self):
         # num_iters = 2  # comment this line (this was used for testing)
-        num_iters = len(self.train_set) // self.num_agents
+        #num_iters = len(self.train_set) // self.num_agents
         total_iter = 0
 
         iters, iters_sampled = [], []
         losses= []
 
-        for k in range(self.num_epochs):
-            print(f"epoch: {k}")
+        #for k in range(self.num_epochs):
+            #print(f"epoch: {k}")
 
-            for i in range(num_iters):
-                total_iter = k * num_iters + i
+        for i in range(1000):
+                #total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
                 loss = 0.0
                 test_acc = 0.0
@@ -106,8 +106,8 @@ class PureLocal:
                 for j in range(self.num_agents):
                     test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
                     test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
-                    val_loss +=float(self.agents[j].calculate_val_loss()) 
-                    val_losses[j] = self.agents[j].calculate_val_loss() 
+                    #val_loss +=float(self.agents[j].calculate_val_loss()) 
+                    #val_losses[j] = self.agents[j].calculate_val_loss() 
 
 
                 iters.append(total_iter)

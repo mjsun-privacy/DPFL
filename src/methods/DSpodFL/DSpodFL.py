@@ -145,11 +145,11 @@ class DSpodFL:
         iters, iters_sampled = [], []
         losses = []
       
-        for k in range(self.num_epochs):
-            print(f"epoch: {k}")
+        #for k in range(self.num_epochs):
+            #print(f"epoch: {k}")
 
-            for i in range(num_iters):
-                total_iter = k * num_iters + i
+        for i in range(1000):
+                #total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
                 loss = 0.0
                 test_acc = 0.0
