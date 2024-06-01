@@ -41,14 +41,14 @@ def main(row_number):
     os.makedirs(data_dir, exist_ok=True)
 
     params_df = pd.read_csv(exp_path)
-    params = params_df.iloc[row_number - 1].to_dict()    # [1-1] access first row of params
+    params = params_df.iloc[row_number].to_dict()    # [1-1] access first row of params
 
     Method_name = params['Method_name']
     Model_name = params['Model_name']
     Dataset_name = params['Dataset_name']
     Num_agents = params['Num_agents']
     Graph_connectivity = params['Graph_connectivity']
-    Labels_per_agent = 0   # params['Labels_per_agent']
+    Labels_per_agent = 0   # params['Labels_per_agent']     #! change it
     alpha = params['Dirichlet_alpha']
     Partition_name = params['Partition_name']
     Data_size = params['Data_size']
@@ -58,6 +58,7 @@ def main(row_number):
     Batch_size = 16
     Learning_rate = 0.01
 
+    print(f'Running {Method_name} with {Model_name} on {Dataset_name} with {Num_agents} agents')
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
@@ -144,7 +145,7 @@ def main(row_number):
          metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
         
 
-    elif(Method_name  == 'Purelocal'):
+    elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
                 model_name= Model_name,
                 dataset_name= Dataset_name,

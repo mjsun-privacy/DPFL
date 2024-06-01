@@ -19,16 +19,16 @@ params = {
     'Method_name': ['DPFL', 'DSpodFL', 'PureLocal'],
     'Model_name': ['SVM'],   #, 'CNN', 'VGG11'
     'Dataset_name': [ 'FMNIST'], #'MNIST', , 'FEMNIST', 'CIFAR10'
-    'Num_agents': [10, 20, 30, 60], 
-    'Graph_connectivity': [0.2, 0.8, 100],
+    'Num_agents': [10, 30, 60], 
+    'Graph_connectivity': [100],
      #'Labels_per_agent': [1, 2, 3, 4, 5, 6],      product conflicts with Dirichlet_alpha in DataFrame
-    'Dirichlet_alpha': [0.1, 0.2, 0.4, 0.8, 1.0],
+    'Dirichlet_alpha': [0.1,  0.4, 1.0],
     'Partition_name': ['Dirichlet'],    #, 'by_label'
-    'Data_size': [0.01, 0.05, 0.1, 0.2, 0.8],
+    'Data_size': [0.01, 0.05, 0.1, 0.5],
     #'Batch_size': [16, 16, 16, 16 ],
     #'Learning_rate': [0.01, 0.01, 0.01],
     #'Max_episode_steps': [1000, 1000, 1000],
-    'Seed': [42, 55, 66, 77, 88]
+    'Seed': [42]
     }
 
 keys, values = zip(*params.items())
@@ -37,7 +37,11 @@ keys, values = zip(*params.items())
 combinations = [dict(zip(keys, v)) for v in product(*values)]
 exp_df = pd.DataFrame(combinations, columns=keys)
 
+sort_columns = [col for col in keys if col != 'Method_name'] + ['Method_name']
+exp_df.sort_values(by=sort_columns, inplace=True)
 
+# Reset index to have a clean DataFrame
+exp_df.reset_index(drop=True, inplace=True)
 
 
 # Get the directory of the script

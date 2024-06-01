@@ -216,7 +216,7 @@ def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, l
     for i in range(num_agents):
         agent_data = sample(separated[i], k=len(separated[i]))  # Shuffle the agent's data
         train_size = int(0.7 *data_size * len(agent_data))
-        val_size = int(0.2 *data_size * len(agent_data))
+        val_size = int(0.2  * len(agent_data))
         train_sets[i] = sample(agent_data[:train_size], k=train_size)  # Shuffle training set
         val_sets[i] = sample(agent_data[train_size:train_size + val_size], k= val_size) 
         test_sets[i] = sample(agent_data[train_size + val_size:], k=len(agent_data) - train_size - val_size)  
@@ -269,7 +269,7 @@ def generate_train_val_test_sets_Dirichlet(train_set, num_agents, num_classes, D
     for i in range(num_agents):
         agent_data = sample(train_sets[i], k=len(train_sets[i]))  # Shuffle the agent's data
         train_size = int(0.70 *data_size* len(agent_data))
-        val_size = int(0.20 *data_size* len(agent_data))
+        val_size = int(0.20 * len(agent_data))
         train_sets[i] = agent_data[:train_size]
         val_sets[i] = agent_data[train_size:train_size + val_size]
         test_sets[i] = agent_data[train_size + val_size:]
