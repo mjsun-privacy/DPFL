@@ -121,11 +121,10 @@ class PureLocal:
      
 
 
-     def reset(self, labels_per_agent=None, 
-               num_agents=10):
+     def reset(self):
         # Do we need this?
-        if labels_per_agent != self.labels_per_agent:
-            self.reset_train_val_test_sets(labels_per_agent)
+        #if labels_per_agent != self.labels_per_agent:
+            #self.reset_train_val_test_sets(labels_per_agent)
      
 
         for agent in self.agents:

@@ -194,7 +194,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         info = {}
 
 
-        num_iters = 5        
+        num_iters = 2          # much better than =1 for RL
         total_iter = 0
         accuracies = []
         

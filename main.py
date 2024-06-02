@@ -7,7 +7,7 @@ from src.methods.PureLocal.PureLocal import PureLocal
 
 import gymnasium as gym
 import torch
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO       # PPO result outperforms A2C
 from stable_baselines3.common.env_checker import check_env
 import matplotlib.pyplot as plt
 # from stable_baselines.common.callbacks import EvalCallback   # evaluate RL model during training periodically and save the best one
@@ -41,15 +41,15 @@ def main(row_number):
     os.makedirs(data_dir, exist_ok=True)
 
     params_df = pd.read_csv(exp_path)
-    params = params_df.iloc[row_number].to_dict()    # [1-1] access first row of params
+    params = params_df.iloc[row_number - 2].to_dict()    #  access first row of params by 2
 
     Method_name = params['Method_name']
     Model_name = params['Model_name']
     Dataset_name = params['Dataset_name']
     Num_agents = params['Num_agents']
     Graph_connectivity = params['Graph_connectivity']
-    Labels_per_agent = 0   # params['Labels_per_agent']     #! change it
-    alpha = params['Dirichlet_alpha']
+    Labels_per_agent = params['Labels_per_agent']   #  0   #! change it
+    alpha = 1          # params['Dirichlet_alpha']
     Partition_name = params['Partition_name']
     Data_size = params['Data_size']
     # Batch_size = params['Batch_size']
@@ -79,7 +79,7 @@ def main(row_number):
            prob_dist_params = (0.5, 0.5),    # (alpha, beta) or (min, max)
            termination_delay = 500,
            DandB = (None,1),
-           max_episode_steps = 500,
+           max_episode_steps = 600,
            seed = Seed
            )      #* max_episode_steps = n_steps in PPO()
 
@@ -90,15 +90,15 @@ def main(row_number):
     # Callback during training
     # eval_callback = EvalCallback(env...)  record logs during RL training
     # Create a PPO model
-       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 500)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
+       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 600)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 5000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 3000, progress_bar=True)     # 5000
     # Save the model
-       RL.save("PPO_saved") 
+       RL.save("RLmodel_saved") 
        del RL  # delete trained model to demonstrate loading
     # Load the trained agent
-       RL = PPO.load("PPO_saved", env=env)
+       RL = PPO.load("RLmodel_saved", env=env)
     # Evaluate the model
        vec_env = RL.get_env()                     # sb3 and gym have different interface, here must use vec_env of sb3
        obs = vec_env.reset()                      # clear model
@@ -159,6 +159,7 @@ def main(row_number):
                 batch_size= Batch_size,
                 learning_rate= Learning_rate,
                 seed= Seed)
+        exp.reset()
         exp.run()
         metric_df = pd.DataFrame({
         'iteration': range(len(exp.accuracies)),
