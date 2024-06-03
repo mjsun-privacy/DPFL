@@ -172,7 +172,8 @@ def generate_train_val_test_sets(train_set, num_agents, num_classes, data_size, 
 # 2. Divide data by Dir(a)
 # should also split testing set here, the original testing set contains all classes
 #* we evaluate each local model on all the available test data belonging to the classes in its local task.
-def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent, data_size):
+
+# def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent, data_size):
     # First shuffle the training set,
     # and then separate it to a dictionary where each entry only contains data coming from one class
     shuffled = sample(train_set, k=len(train_set))
@@ -225,6 +226,57 @@ def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, l
 
     # separated_shuffled = [sample(separated[i], k=len(separated[i])) for i in range(len(separated))]
     # return separated_shuffled
+
+
+
+def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent, data_size):
+    # First shuffle the training set,
+    # and then separate it into a dictionary where each entry only contains data coming from one class
+    shuffled = sample(train_set, k=len(train_set))
+    separated_by_output = {j: [data for data in shuffled if data[1] == j] for j in range(num_classes)}
+
+    # Determine number of data splits from each class for each agent
+    total_data_splits_count = num_agents * labels_per_agent
+    data_splits_per_class = total_data_splits_count // num_classes
+    rem_classes = total_data_splits_count % num_classes
+    each_class_div = [data_splits_per_class for _ in range(num_classes)]
+    
+    # Distribute remaining splits among some classes
+    for i in range(rem_classes):
+        each_class_div[i] += 1
+
+    data_splits = {j: [] for j in range(num_classes)}
+    for j in range(num_classes):
+        div = len(separated_by_output[j]) // each_class_div[j] if each_class_div[j] != 0 else 1
+        data_splits[j].extend([separated_by_output[j][i * div: (i + 1) * div] for i in range(each_class_div[j] - 1)])
+        data_splits[j].append(separated_by_output[j][(each_class_div[j] - 1) * div: len(separated_by_output[j])])
+
+    separated = [[] for _ in range(num_agents)]
+    for i in range(num_agents):
+        chosen_labels = sample(range(num_classes), labels_per_agent)
+        for label in chosen_labels:
+            if data_splits[label]:
+                separated[i].extend(data_splits[label].pop(0))
+
+    # Initialize dictionaries to hold training, validation, and test data for each agent
+    train_sets = {i: [] for i in range(num_agents)}
+    val_sets = {i: [] for i in range(num_agents)}
+    test_sets = {i: [] for i in range(num_agents)}
+
+    # Shuffle and split each agent's data into training (75%), validation (20%), and test (5%) sets
+    for i in range(num_agents):
+        agent_data = sample(separated[i], k=len(separated[i]))  # Shuffle the agent's data
+        train_size = int(0.7 *data_size* len(agent_data))
+        val_size = int(0.2 * len(agent_data))
+        test_size = len(agent_data) - train_size - val_size
+        
+        train_sets[i] = sample(agent_data[:train_size], k=train_size)  # Shuffle training set
+        val_sets[i] = sample(agent_data[train_size:train_size + val_size], k=val_size)
+        test_sets[i] = sample(agent_data[train_size + val_size:], k=test_size)
+
+    return train_sets, val_sets, test_sets
+
+
 
 
 # This can generate nonIIDness with unbalance sample number in each label.
