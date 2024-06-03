@@ -81,7 +81,7 @@ def main(row_number):
            prob_dist_params = (0.5, 0.5),    # (alpha, beta) or (min, max)
            termination_delay = 500,
            DandB = (None,1),
-           max_episode_steps = 300,
+           max_episode_steps = 250,
            seed = Seed
            )      #* max_episode_steps = n_steps in PPO()
 
@@ -92,10 +92,10 @@ def main(row_number):
     # Callback during training
     # eval_callback = EvalCallback(env...)  record logs during RL training
     # Create a PPO model
-       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 300)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
+       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 250)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 3000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 2000, progress_bar=True)     # 5000
     # Save the model
        RL.save("RLmodel_saved") 
        del RL  # delete trained model to demonstrate loading
