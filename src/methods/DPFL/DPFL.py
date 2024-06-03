@@ -17,7 +17,6 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                  model_name: str,
                  dataset_name: str,
                  partition_name: str,
-                 num_epochs: int,
                  num_agents: int,
                  graph_connectivity: float,
                  labels_per_agent: int,
@@ -35,7 +34,6 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                  seed: int):
 
         self.model_name = model_name
-        self.num_epochs = num_epochs
         self.num_agents = num_agents
         self.graph_connectivity = graph_connectivity
         self.labels_per_agent = labels_per_agent
@@ -191,80 +189,75 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         if self._elapsed_steps >= self._max_episode_steps:
            truncated = True
            print('Truncated!')
+
         info = {}
-
-
-        num_iters = 2          # much better than =1 for RL
-        total_iter = 0
-        accuracies = []
+        mixing_matrix = np.clip(mixing_matrix, 0.0, 1.0)
         
+        #mixing_matrix = np.zeros((self.num_agents, self.num_agents))
+        #np.fill_diagonal(mixing_matrix, 1)
         # print(f"current unnormalized action is:{mixing_matrix}")     
-
-        #* avoid illegal action, NO NEED TO NORMAILIZE, sum = 1 naturally holds, we just have to ensure wij \in [0,1].
+        # avoid illegal action, NO NEED TO NORMAILIZE, sum = 1 naturally holds, we just have to ensure wij \in [0,1].
         # we can not control how and where the RL generate actions (e.g., illegal), so post-processe: set 0 for non-neighbor and then normalize 1
         # or don't set 0, since non-neighbor of graph will not have communication, so no effect no matter how RL generates
         # check if the generated action satisfies action_space. our action space is already (0,1), we should not use softmax
-        mixing_matrix = np.clip(mixing_matrix, 0.0, 1.0)
-        
-
-        #* during the itrs, generate_graph will not be called, hence, neighbors will not change 
-        for k in range(self.num_epochs):
+        # during the itrs, generate_graph will not be called, hence, neighbors will not change 
             # print(f"epoch:{k}")
             # num_iters = len(self.train_set) // self.num_agents, data will not be reused    
             # iters num require for one epoch (passing all training_data once for sgd), we don't need epoch
-            #* if DL runs multiple steps, will w begins correctly from previous DL round and as the start of next RL round? Yes, self.w records
-            for i in range(num_iters):
-                total_iter = k * num_iters + i
-                # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
-            
-                test_acc = 0.0
-                val_loss = 0.0
-                cpu_used, max_cpu_usable = 0, 0
-                bandwidth_used, max_bandwidth_usable = 0, 0
-                transmission_time_used, max_transmission_time_usable = 0, 0
-                processing_time_used, max_processing_time_usable = 0, 0
-                delay_used, max_delay_usable = 0, 0
+            # if DL runs multiple steps, will w begins correctly from previous DL round and as the start of next RL round? Yes, self.w records
+        
+        num_iters = 2          # much better than =1 for RL
+        for i in range(num_iters):
 
-                for j in range(self.num_agents):
-                    self.agents[j].run_step1(mixing_matrix)
+            for j in range(self.num_agents):
+                self.agents[j].run_step1(mixing_matrix)
 
-                test_accs = [0.0]*self.num_agents
-                val_losses = [0.0]*self.num_agents 
+            for j in range(self.num_agents):
+                self.agents[j].run_step2()
+
+        test_acc = 0.0
+        val_loss = 0.0
+        test_accs = [0.0]*self.num_agents
+        val_losses = [0.0]*self.num_agents 
+        accuracy = 0.0
+        #cpu_used, max_cpu_usable = 0, 0
+        #bandwidth_used, max_bandwidth_usable = 0, 0
+        #transmission_time_used, max_transmission_time_usable = 0, 0
+        #processing_time_used, max_processing_time_usable = 0, 0
+        #delay_used, max_delay_usable = 0, 0
+
                 
-                for j in range(self.num_agents):
-                    test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
-                    test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
-                    val_loss +=float(self.agents[j].calculate_val_loss()) 
-                    val_losses[j] = self.agents[j].calculate_val_loss()  # python defult to be float 64
+        for j in range(self.num_agents):
+            test_acc += float(self.agents[j].calculate_test_acc())   # float (64)
+            test_accs[j] = self.agents[j].calculate_test_acc() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
+            val_loss +=float(self.agents[j].calculate_val_loss()) 
+            val_losses[j] = self.agents[j].calculate_val_loss()  # python defult to be float 64
 
-                    cpu_used += self.agents[j].cpu_used()
-                    max_cpu_usable += self.agents[j].max_cpu_usable()
-                    processing_time_used += self.agents[j].processing_time_used()
-                    max_processing_time_usable += self.agents[j].max_processing_time_usable()
-                    bandwidth_used += self.agents[j].bandwidth_used()
-                    max_bandwidth_usable += self.agents[j].max_bandwidth_usable()
-                    transmission_time_used += self.agents[j].transmission_time_used()
+            #cpu_used += self.agents[j].cpu_used()
+            #max_cpu_usable += self.agents[j].max_cpu_usable()
+            #processing_time_used += self.agents[j].processing_time_used()
+            #max_processing_time_usable += self.agents[j].max_processing_time_usable()
+            #bandwidth_used += self.agents[j].bandwidth_used()
+            #max_bandwidth_usable += self.agents[j].max_bandwidth_usable()
+            #transmission_time_used += self.agents[j].transmission_time_used()
 
 
-                for j in range(self.num_agents):
-                    self.agents[j].run_step2()
-
-                accuracies.append(test_acc / self.num_agents)
-                obs = np.array(val_losses, dtype= np.float64)
-                reward = - val_loss      #* no, self.loss is training loss #TODO: make sure this is actually the sum of losses on the validation set by checking semantics of self.loss 
-                # a RL episode end with terminated state, i.e., achieve final goal:
-                terminated = False       #TODO: return true when termination condition is met, e.g. convergence # will call reset(), which resets model and graph
-                # An episode is done iff the agent has reached the target, e.g.,
-                   # terminated = np.array_equal(self._agent_location, self._target_location)
-                   # reward = 1 if terminated else 0  # Binary sparse rewards
-                terminated = True if val_loss < 0.1 else False
-                if terminated:
-                   print(f"Terminated! val_loss ={val_loss}")
-                   reward += 100              
+        obs = np.array(val_losses, dtype= np.float64)
+        reward =  2 ** (- val_loss)     # 2 ** (val_acc - 0.89) - 1      #* no, self.loss is training loss #TODO: make sure this is actually the sum of losses on the validation set by checking semantics of self.loss 
+        # a RL episode end with terminated state, i.e., achieve final goal:
+        terminated = False       #TODO: return true when termination condition is met, e.g. convergence # will call reset(), which resets model and graph
+        # An episode is done iff the agent has reached the target, e.g.,
+        # terminated = np.array_equal(self._agent_location, self._target_location)
+        # reward = 1 if terminated else 0  # Binary sparse rewards
+        terminated = True if val_loss < 0.10 else False
+        if terminated:
+            print(f"Terminated! val_loss ={val_loss}")
+            reward += 100              
                 
-            print(reward, test_acc / self.num_agents)
-            info['test_acc']= accuracies
-            return obs, reward, terminated, truncated,  info     # newest gym have added truncated value and info
+        accuracy = test_acc / self.num_agents
+        print(reward, test_acc / self.num_agents)
+        info['test_acc']= accuracy
+        return obs, reward, terminated, truncated,  info     # newest gym have added truncated value and info
         
     """   # I want to plot iters and losses
         iters.append(total_iter)

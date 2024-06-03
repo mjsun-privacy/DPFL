@@ -41,6 +41,7 @@ class Agent_DPFL:
         self.loss = 0 # TODO: understand if this is a training or validation loss # was None  
                       #* self.loss = training loss
         self.accuracy = 0.0
+        self.val_acc = 0.0
         self.val_loss = 0.0
         self.data_processed = None
         self.aggregation_count = None
@@ -182,11 +183,16 @@ class Agent_DPFL:
          return val_loss / num_samples      # or len(self.val_set)
 
 
-    def calculate_accuracy(self):                       
+    def calculate_test_acc(self):                       
         self.accuracy = utils.calculate_accuracy(self.w, self.test_set)
         return self.accuracy
 
+
+    def calculate_val_acc(self):                       
+        self.accuracy = utils.calculate_accuracy(self.w, self.val_set)
+        return self.val_acc
    
+
     def reset(self, model=None, prob_sgd=None):
         # Agent-based properties
         if prob_sgd is not None:

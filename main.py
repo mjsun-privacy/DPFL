@@ -1,5 +1,6 @@
 import os
 import random
+from datetime import datetime
 
 from src.methods.DPFL.DPFL import DPFL
 from src.methods.DSpodFL.DSpodFL import DSpodFL
@@ -19,6 +20,7 @@ import argparse as args
 import pandas as pd
 
 # run on gpu
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type(torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
 
@@ -37,7 +39,8 @@ def main(row_number):
     exp_path = os.path.join(exp_data_dir, 'exp_df.csv')
     
     # Create a folder to save the results
-    data_dir = os.path.join(exp_data_dir, 'data')
+    current_time = datetime.now().strftime('%m-%d_%H-%M')
+    data_dir = os.path.join(exp_data_dir, 'data', current_time)
     os.makedirs(data_dir, exist_ok=True)
 
     params_df = pd.read_csv(exp_path)
@@ -63,9 +66,8 @@ def main(row_number):
     # instantiate my env
        env = DPFL( 
            model_name = Model_name,
-           dataset_name = Dataset_name,
+           dataset_name = 'CIFAR10',
            partition_name = Partition_name,
-           num_epochs = 1,
            num_agents = Num_agents,
            graph_connectivity = Graph_connectivity,
            labels_per_agent = Labels_per_agent,
@@ -93,7 +95,7 @@ def main(row_number):
        RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 600)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 3000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 3600, progress_bar=True)     # 5000
     # Save the model
        RL.save("RLmodel_saved") 
        del RL  # delete trained model to demonstrate loading
@@ -121,7 +123,7 @@ def main(row_number):
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
                  model_name= Model_name,
-                 dataset_name= Dataset_name,
+                 dataset_name= 'CIFAR10',
                  partition_name = Partition_name,   
                  num_epochs= 10,
                  num_agents= Num_agents,
@@ -148,7 +150,7 @@ def main(row_number):
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
                 model_name= Model_name,
-                dataset_name= Dataset_name,
+                dataset_name= 'CIFAR10',
                 partition_name = Partition_name,
                 num_epochs= 10,
                 num_agents= Num_agents,
@@ -156,7 +158,7 @@ def main(row_number):
                 labels_per_agent= Labels_per_agent,
                 Dirichlet_alpha= alpha,
                 data_size = Data_size,
-                batch_size= Batch_size,
+                batch_size= 16,
                 learning_rate= Learning_rate,
                 seed= Seed)
         exp.reset()
