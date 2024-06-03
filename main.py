@@ -95,7 +95,7 @@ def main(row_number):
        RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 300)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 9000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 3000, progress_bar=True)     # 5000
     # Save the model
        RL.save("RLmodel_saved") 
        del RL  # delete trained model to demonstrate loading
@@ -111,15 +111,17 @@ def main(row_number):
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
            # record acc
-           accs.extend(info[0]['test_acc'])
-           actions.extend(mixing_matrix)
+           accs.append(info[0]['test_acc'])
+           actions.append(mixing_matrix)
                
     # record all metrics based on a row of parameters in one table
        
        metric_df = pd.DataFrame({
         'iteration': range(len(accs)),
-        'test_acc': accs})
+        'test_acc': accs,
+        'actions': actions})
        metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
+
 
 
     elif(Method_name == 'DSpodFL'):
