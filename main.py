@@ -65,7 +65,7 @@ def main(row_number):
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'CNN',
+           model_name = 'SVM',
            dataset_name = 'CIFAR10',
            partition_name = Partition_name,
            num_agents = Num_agents,
@@ -105,12 +105,14 @@ def main(row_number):
        vec_env = RL.get_env()                     # sb3 and gym have different interface, here must use vec_env of sb3
        obs = vec_env.reset()                      # clear model
        accs = []
+       actions = []
 
        for i in range (1000):                       # num of step()    # 1000
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
            # record acc
            accs.extend(info[0]['test_acc'])
+           actions.extend(mixing_matrix)
                
     # record all metrics based on a row of parameters in one table
        
@@ -122,7 +124,7 @@ def main(row_number):
 
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
-                 model_name= 'CNN',
+                 model_name= 'SVM',
                  dataset_name= 'CIFAR10',
                  partition_name = Partition_name,   
                  num_epochs= 10,
@@ -149,7 +151,7 @@ def main(row_number):
 
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
-                model_name= 'CNN',
+                model_name= 'SVM',
                 dataset_name= 'CIFAR10',
                 partition_name = Partition_name,
                 num_epochs= 10,
