@@ -65,7 +65,7 @@ def main(row_number):
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = Model_name,
+           model_name = 'CNN',
            dataset_name = 'CIFAR10',
            partition_name = Partition_name,
            num_agents = Num_agents,
@@ -122,7 +122,7 @@ def main(row_number):
 
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
-                 model_name= Model_name,
+                 model_name= 'CNN',
                  dataset_name= 'CIFAR10',
                  partition_name = Partition_name,   
                  num_epochs= 10,
@@ -149,7 +149,7 @@ def main(row_number):
 
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
-                model_name= Model_name,
+                model_name= 'CNN',
                 dataset_name= 'CIFAR10',
                 partition_name = Partition_name,
                 num_epochs= 10,

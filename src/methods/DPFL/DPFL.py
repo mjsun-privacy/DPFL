@@ -165,6 +165,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
                 learning_rate=self.learning_rate,
                 prob_sgd=prob_sgds[i]
             )
+            print(f"Agent {i} has {len(train_sets[i])} training samples, {len(val_sets[i])} val samples, {len(test_sets[i])} test samples")
             agents.append(agent_i)
 
         
