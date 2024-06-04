@@ -65,8 +65,8 @@ def main(row_number):
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'SVM',
-           dataset_name = 'FMNIST',
+           model_name = 'CNN',
+           dataset_name = 'CIFAR10',
            partition_name = Partition_name,
            num_agents = 10,
            graph_connectivity = Graph_connectivity,
@@ -126,8 +126,8 @@ def main(row_number):
 
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
-                 model_name= 'SVM',
-                 dataset_name= 'FMNIST',
+                 model_name= 'CNN',
+                 dataset_name= 'CIFAR10',
                  partition_name = Partition_name,   
                  num_epochs= 0,
                  num_agents= 10,
