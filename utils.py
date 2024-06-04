@@ -89,7 +89,7 @@ def model_info(model_name, input_dim, num_classes, num_channels):
         model = torch.nn.Linear(input_dim, num_classes)
         criterion = torch.nn.MultiMarginLoss()
     elif model_name == "CNN":
-        model = CNN(num_classes, num_channels)
+        model = CNN()
         criterion = torch.nn.CrossEntropyLoss()
     elif model_name == "Custom_CNN":
         model = Custom_CNN(num_classes, num_channels)

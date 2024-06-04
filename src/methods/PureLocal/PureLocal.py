@@ -90,7 +90,7 @@ class PureLocal:
         #for k in range(self.num_epochs):
             #print(f"epoch: {k}")
 
-        for i in range(1000):
+        for i in range(300):
                 #total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
                 loss = 0.0

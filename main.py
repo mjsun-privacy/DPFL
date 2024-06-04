@@ -65,14 +65,14 @@ def main(row_number):
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'VGG11',
-           dataset_name = 'CIFAR10',
+           model_name = 'SVM',
+           dataset_name = 'FMNIST',
            partition_name = Partition_name,
-           num_agents = Num_agents,
+           num_agents = 10,
            graph_connectivity = Graph_connectivity,
-           labels_per_agent = 10,
+           labels_per_agent = 2,
            Dirichlet_alpha = alpha,
-           data_size = Data_size,
+           data_size = 0.01,
            batch_size = Batch_size,
            learning_rate = Learning_rate,
            prob_aggr_type = 'full',
@@ -95,7 +95,7 @@ def main(row_number):
        RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 250)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 2000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 1500, progress_bar=True)     # 5000
     # Save the model
        RL.save("RLmodel_saved") 
        del RL  # delete trained model to demonstrate loading
@@ -107,7 +107,7 @@ def main(row_number):
        accs = []
        actions = []
 
-       for i in range (1000):                       # num of step()    # 1000
+       for i in range (500):                       # num of step()    # 1000
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
            # record acc
@@ -126,15 +126,15 @@ def main(row_number):
 
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
-                 model_name= 'VGG11',
-                 dataset_name= 'CIFAR10',
+                 model_name= 'SVM',
+                 dataset_name= 'FMNIST',
                  partition_name = Partition_name,   
-                 num_epochs= 10,
-                 num_agents= Num_agents,
+                 num_epochs= 0,
+                 num_agents= 10,
                  graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                 labels_per_agent= 10,
+                 labels_per_agent= 2,
                  Dirichlet_alpha= alpha,
-                 data_size = 1,
+                 data_size = 0.01,
                  batch_size= Batch_size,
                  learning_rate= Learning_rate,
                  prob_aggr_type= 'full',
@@ -153,15 +153,15 @@ def main(row_number):
 
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
-                model_name= 'VGG11',
+                model_name= 'CNN',
                 dataset_name= 'CIFAR10',
                 partition_name = Partition_name,
-                num_epochs= 10,
-                num_agents= Num_agents,
+                num_epochs= 0,
+                num_agents= 10,
                 graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                labels_per_agent= 10,
+                labels_per_agent= 2,    # 至少为二分类，labels = 2， local sgd labels= 1的话正确率应该是100%。
                 Dirichlet_alpha= alpha,
-                data_size = Data_size,
+                data_size = 0.01,
                 batch_size= 16,
                 learning_rate= Learning_rate,
                 seed= Seed)

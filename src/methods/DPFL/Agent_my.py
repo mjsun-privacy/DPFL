@@ -72,7 +72,7 @@ class Agent_DPFL:
             
             #* no need to Normalize the action array, sum = 1 always holds. but should ensure that wij \in [0,1], see MTL, L2C, and this paper. 
             # Here we use wii to affect \sum wij in aggregation update
-            """ action_sum = mixing_matrix[self.id][self.id]
+            action_sum = mixing_matrix[self.id][self.id]
             check_sum = 0.0
             for neighbor in self.aggregation_neighbors: 
                 action_sum += mixing_matrix[self.id][neighbor['agent'].id]   
@@ -91,9 +91,9 @@ class Agent_DPFL:
                check_sum = mixing_matrix[self.id][self.id]
                for neighbor in self.aggregation_neighbors:
                    mixing_matrix[self.id][neighbor['agent'].id]  /= (1.0* action_sum)
-                   check_sum += mixing_matrix[self.id][neighbor['agent'].id] """
+                   check_sum += mixing_matrix[self.id][neighbor['agent'].id]
 
-            mixing_matrix[self.id][self.id] = 1.0
+            #mixing_matrix[self.id][self.id] = 1.0
             # print(f"current action of agent{self.id} is:{mixing_matrix}") 
             # print(f"neighbors summed weights of agent{self.id} is:{check_sum}")
 

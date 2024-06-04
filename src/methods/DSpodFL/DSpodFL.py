@@ -148,7 +148,7 @@ class DSpodFL:
         #for k in range(self.num_epochs):
             #print(f"epoch: {k}")
 
-        for i in range(1000):
+        for i in range(300):
                 #total_iter = k * num_iters + i
                 # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
                 loss = 0.0
@@ -162,6 +162,10 @@ class DSpodFL:
 
                 for j in range(self.num_agents):
                     self.agents[j].run_step1()
+
+                for j in range(self.num_agents):
+                    self.agents[j].run_step2()
+
 
                 test_accs = [0.0]*self.num_agents
                 val_losses = [0.0]*self.num_agents
@@ -184,9 +188,6 @@ class DSpodFL:
 
                     #delay_used += self.agents[j].delay_used()
                     #max_delay_usable += self.agents[j].max_delay_usable()
-
-                for j in range(self.num_agents):
-                    self.agents[j].run_step2()
 
                 iters.append(total_iter)
                 self.accuracies.append(test_acc / self.num_agents)
