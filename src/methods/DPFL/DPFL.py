@@ -51,7 +51,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         #Call constructor of parent class and specify action and state spaces
         # inherit attributes action_space and obs_space from Class gym.env and redefine     # mj: in multi rl, env, action and state spaces should be in Class Agents
         super(DPFL, self).__init__()
-        self.action_space = spaces.Box(low=0.0, high=1.0, shape=(self.num_agents, self.num_agents), dtype=np.float64) # flattened mixing matrix  #* should not be flattened
+        self.action_space = spaces.Box(low=0.0, high= 0.01, shape=(self.num_agents, self.num_agents), dtype=np.float64) # flattened mixing matrix  #* should not be flattened
         self.observation_space = spaces.Box(low=0.0, high=100.0, shape=(self.num_agents,), dtype=np.float64) #TODO: these are the losses. find how to give no high bound
 
         # self.obs = [0]*self.num_agents # New: contains the system state (observation). Initialized at zero
@@ -192,7 +192,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
            print('Truncated!')
 
         info = {}
-        mixing_matrix = np.clip(mixing_matrix, 0.0, 1.0)
+        mixing_matrix = np.clip(mixing_matrix, 0.0, 0.01)
         
         #mixing_matrix = np.zeros((self.num_agents, self.num_agents))
         #np.fill_diagonal(mixing_matrix, 1)

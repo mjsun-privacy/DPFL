@@ -65,12 +65,12 @@ def main(row_number):
     if(Method_name == 'DPFL'):
     # instantiate my env
        env = DPFL( 
-           model_name = 'SVM',
+           model_name = 'VGG11',
            dataset_name = 'CIFAR10',
            partition_name = Partition_name,
            num_agents = Num_agents,
            graph_connectivity = Graph_connectivity,
-           labels_per_agent = Labels_per_agent,
+           labels_per_agent = 10,
            Dirichlet_alpha = alpha,
            data_size = Data_size,
            batch_size = Batch_size,
@@ -120,21 +120,21 @@ def main(row_number):
         'iteration': range(len(accs)),
         'test_acc': accs,
         'actions': actions})
-       metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
+       metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
 
 
 
     elif(Method_name == 'DSpodFL'):
          exp = DSpodFL(
-                 model_name= 'SVM',
+                 model_name= 'VGG11',
                  dataset_name= 'CIFAR10',
                  partition_name = Partition_name,   
                  num_epochs= 10,
                  num_agents= Num_agents,
                  graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                 labels_per_agent= Labels_per_agent,
+                 labels_per_agent= 10,
                  Dirichlet_alpha= alpha,
-                 data_size = Data_size,
+                 data_size = 1,
                  batch_size= Batch_size,
                  learning_rate= Learning_rate,
                  prob_aggr_type= 'full',
@@ -148,18 +148,18 @@ def main(row_number):
          metric_df = pd.DataFrame({
         'iteration': range(len(exp.accuracies)),
         'test_acc': exp.accuracies})
-         metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
+         metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
         
 
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
-                model_name= 'SVM',
+                model_name= 'VGG11',
                 dataset_name= 'CIFAR10',
                 partition_name = Partition_name,
                 num_epochs= 10,
                 num_agents= Num_agents,
                 graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                labels_per_agent= Labels_per_agent,
+                labels_per_agent= 10,
                 Dirichlet_alpha= alpha,
                 data_size = Data_size,
                 batch_size= 16,
@@ -170,7 +170,7 @@ def main(row_number):
         metric_df = pd.DataFrame({
         'iteration': range(len(exp.accuracies)),
         'test_acc': exp.accuracies})
-        metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}_{Model_name}_{Dataset_name}_{Partition_name}_{Seed}.csv"), index=False)
+        metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
       
     else:
         print("Method not found!")

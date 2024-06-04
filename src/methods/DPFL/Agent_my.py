@@ -45,7 +45,7 @@ class Agent_DPFL:
         self.val_loss = 0.0
         self.data_processed = None
         self.aggregation_count = None
-        self.v = 0 #By default I assume you do not do SGD
+        self.v = 1 #By default I assume you do not do SGD
 
     def run_step1(self, mixing_matrix):
          
@@ -64,7 +64,7 @@ class Agent_DPFL:
             if neighbor['v_hat'] == 1:
                 self.aggregation_neighbors.append(neighbor)
                 #we reset vhat for later
-                neighbor['v_hat'] = 0
+                neighbor['v_hat'] = 1
 
         self.aggregation = [0 for _ in range(self.len_params)]
         # if i has neighbors, aggregate their models into i
@@ -72,7 +72,7 @@ class Agent_DPFL:
             
             #* no need to Normalize the action array, sum = 1 always holds. but should ensure that wij \in [0,1], see MTL, L2C, and this paper. 
             # Here we use wii to affect \sum wij in aggregation update
-            action_sum = mixing_matrix[self.id][self.id]
+            """ action_sum = mixing_matrix[self.id][self.id]
             check_sum = 0.0
             for neighbor in self.aggregation_neighbors: 
                 action_sum += mixing_matrix[self.id][neighbor['agent'].id]   
@@ -91,8 +91,9 @@ class Agent_DPFL:
                check_sum = mixing_matrix[self.id][self.id]
                for neighbor in self.aggregation_neighbors:
                    mixing_matrix[self.id][neighbor['agent'].id]  /= (1.0* action_sum)
-                   check_sum += mixing_matrix[self.id][neighbor['agent'].id]
+                   check_sum += mixing_matrix[self.id][neighbor['agent'].id] """
 
+            mixing_matrix[self.id][self.id] = 1.0
             # print(f"current action of agent{self.id} is:{mixing_matrix}") 
             # print(f"neighbors summed weights of agent{self.id} is:{check_sum}")
 
@@ -252,7 +253,7 @@ class Agent_DPFL:
     
     def add_neighbor(self, agent, prob_aggr, initial_prob_aggr):
         self.neighbors.append({'agent': agent, 'prob_aggr': 1.0,
-                               'initial_prob_aggr': 1.0, 'v_hat': 0})
+                               'initial_prob_aggr': 1.0, 'v_hat': 1})
         # self.neighbors.append({'agent': agent, 'prob_aggr': prob_aggr,
         #                 'initial_prob_aggr': initial_prob_aggr, 'v_hat': 0})
 
