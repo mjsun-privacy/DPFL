@@ -2,7 +2,7 @@
 
 #SBATCH -J DPFL
 #SBATCH --time=0-8:00:00
-#SBATCH --array=2-82
+#SBATCH --array=2-4
 #SBATCH -p epyc2
 #SBATCH -o outfiles/%A_%a.out
 

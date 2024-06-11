@@ -1,10 +1,10 @@
 #!/bin/bash -l
 
 #SBATCH -J DPFL
-#SBATCH --time=0-3:00:00
-#SBATCH --array=0-80
+#SBATCH --time=0-7:00:00
+#SBATCH --array=2-4
 #SBATCH -p gpu
-#SBATCH --gres=gpu:gtx1080ti:1
+#SBATCH --gres=gpu:teslap100:1    #gtx1080ti
 #SBATCH -o outfiles/%A_%a.out
 
 COMMAND='source /storage/homefs/ms23h901/git/DPFL_1/.venv/bin/activate'
