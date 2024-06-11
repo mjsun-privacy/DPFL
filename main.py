@@ -26,9 +26,6 @@ torch.set_default_tensor_type(torch.cuda.FloatTensor if torch.cuda.is_available(
 
 
 
-
-
-
 def main(row_number):  
     # Load parameters from the pandas DataFrame
     # read the column of Parameters (e.g., num of agents, time slot) in Pandas Data Frame as x axis, and get metric e.g., val loss as y axis, 

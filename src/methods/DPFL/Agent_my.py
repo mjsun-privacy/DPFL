@@ -124,7 +124,7 @@ class Agent_DPFL:
         train_loader = DataLoader(
             data,
             batch_size=self.batch_size,
-            shuffle=True
+            shuffle=False
         )
         # next(iter()) 每次一个batch不重复, 遍历完一次training set就是一个epoch
         dataX, dataY = next(iter(train_loader))                 # everytime trains on a batch of data of train_loader, so no loop here
