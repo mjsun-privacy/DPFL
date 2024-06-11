@@ -7,6 +7,10 @@ from torch.utils.data import DataLoader
 
 import utils
 import numpy as np
+import torch.nn.functional as F
+
+
+
 
 class Agent_DPFL:
     def __init__(self,
@@ -18,7 +22,6 @@ class Agent_DPFL:
                  test_set,
                  batch_size: int,
                  learning_rate: float,
-                 prob_sgd: float,
                  ):                       #Multi RL: should have parameter gym env by each agent
         self.id = id
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -29,8 +32,7 @@ class Agent_DPFL:
         self.test_set = test_set
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.prob_sgd = self.initial_prob_sgd = prob_sgd
-
+        
         self.w = deepcopy(self.initial_model)
         self.len_params = len(list(initial_model.parameters()))
 
@@ -43,68 +45,62 @@ class Agent_DPFL:
         self.accuracy = 0.0
         self.val_acc = 0.0
         self.val_loss = 0.0
-        self.data_processed = None
-        self.aggregation_count = None
-        self.v = 1 #By default I assume you do not do SGD
-
+        self.data_processed = 0
+        self.aggregation_count = 0
+       
     def run_step1(self, mixing_matrix):
          
         #* Do gradient first, from 
         # if you're selected to do an sgd step, do it and update the gradient, self.loss etc
         self.gradient = [0 for _ in range(self.len_params)]       
-        if self.v == 1:
-            self.data_processed += self.batch_size
-            self.gradient = self.gradient_descent(choices(self.train_set, k=self.batch_size))
+        
+        
+        self.gradient = self.gradient_descent(choices(self.train_set, k=self.batch_size))
 
         #vhat decides if j is in i's neighbor list
         #at this point the neighbors list is already full with the correct vhats
         #we determine the aggregation_neighbors as a subset
         self.aggregation_neighbors = []
         for neighbor in self.neighbors:
-            if neighbor['v_hat'] == 1:
-                self.aggregation_neighbors.append(neighbor)
-                #we reset vhat for later
-                neighbor['v_hat'] = 1
-
+            self.aggregation_neighbors.append(neighbor)
+               
+        
         self.aggregation = [0 for _ in range(self.len_params)]
         # if i has neighbors, aggregate their models into i
         if len(self.aggregation_neighbors) != 0:     
             
-            #* no need to Normalize the action array, sum = 1 always holds. but should ensure that wij \in [0,1], see MTL, L2C, and this paper. 
-            # Here we use wii to affect \sum wij in aggregation update
-            action_sum = mixing_matrix[self.id][self.id]
-            check_sum = 0.0
+            
+            # original normalization   leads to bad performance, 随着agents增多，没有normalize 会无限发散，有强制sum=1 normalize会up and down，不相关的会有系数
+            action_sum = 0.0
             for neighbor in self.aggregation_neighbors: 
                 action_sum += mixing_matrix[self.id][neighbor['agent'].id]   
 
-            if action_sum == 1.0:
-                check_sum = 1.0
-            
-            # if sum wij/i == 0: no aggr
-            if action_sum == 0.0:       
-               mixing_matrix[self.id][self.id] = 1.0
-               action_sum = 1.0
-               check_sum = 1.0
-            
-            if action_sum != 1.0:  
-               mixing_matrix[self.id][self.id] /= (1.0* action_sum)
-               check_sum = mixing_matrix[self.id][self.id]
+
+            if action_sum == 0.0:
+                pass
+            elif action_sum > 1.0: 
                for neighbor in self.aggregation_neighbors:
                    mixing_matrix[self.id][neighbor['agent'].id]  /= (1.0* action_sum)
-                   check_sum += mixing_matrix[self.id][neighbor['agent'].id]
+                   
+            
 
-            #mixing_matrix[self.id][self.id] = 1.0
-            # print(f"current action of agent{self.id} is:{mixing_matrix}") 
-            # print(f"neighbors summed weights of agent{self.id} is:{check_sum}")
 
+
+            #mixing_matrix[self.id] = softmax(mixing_matrix[self.id])   #! it's wrong! a same matrix will change if each action has multiple aggr times.
+            #mixing_matrix = np.identity(mixing_matrix.shape[0])  
+            #print(f"current action of agent{self.id} is:{softmax(mixing_matrix[self.id])}") 
+           
+           
+            # mixing_matrix[1:, :] = 0
             #* wii in mixing_matrix is useless, because in update wii = 1-\sum wij, and sum = 1 always holds. 
             #* To recover L2C, we can let \sum wij \in [0，1], so that wii \in [0,1], 
             for neighbor in self.aggregation_neighbors: 
                 param_idx = 0                           
                 # neighbor['agent'] will be pointed to a instance of Class Agent(), so it can call method get_w of Class Agent  
-                for param, param_neighbor in zip(self.w.parameters(), neighbor['agent'].get_w().parameters()):                    
-                    self.aggregation[param_idx] += mixing_matrix[self.id][neighbor['agent'].id] * (param_neighbor.data - param.data)     # w = copy.deepcopy(model)
-                    param_idx += 1
+                for param, param_neighbor in zip(self.w.parameters(), neighbor['agent'].get_w().parameters()):      
+                    #if F.cosine_similarity(param_neighbor.data.flatten(), param.data.flatten(), dim=0)>0:                 # 增加cosine similarity的限制，只有相似的才聚合, 但应该让RL自己学习，不应该人为限制
+                       self.aggregation[param_idx] += mixing_matrix[self.id][neighbor['agent'].id] * (param_neighbor.data - param.data)     # 如果模型相差太大不应该聚合，导致发散
+                       param_idx += 1
 
             self.aggregation_count += len(self.aggregation_neighbors)
 
@@ -117,14 +113,7 @@ class Agent_DPFL:
                 param.data += self.aggregation[param_idx] - self.gradient[param_idx]   #* param.data updates self.w directly, hence changed self.w is the start of new iteraion
                 param_idx += 1
 
-        self.v = 0
-        if random() <= self.prob_sgd:
-            self.v = 1
 
-        for neighbor in self.neighbors:
-            if random() <= neighbor['prob_aggr']:
-                neighbor['v_hat'] = 1
-                neighbor['agent'].set_v_hat(self, 1)
 
     def gradient_descent(self, data):
         # We do the update on a temporary model, so that we can do the gradient descent
@@ -135,13 +124,13 @@ class Agent_DPFL:
         train_loader = DataLoader(
             data,
             batch_size=self.batch_size,
-            shuffle=False
+            shuffle=True
         )
         # next(iter()) 每次一个batch不重复, 遍历完一次training set就是一个epoch
         dataX, dataY = next(iter(train_loader))                 # everytime trains on a batch of data of train_loader, so no loop here
         dataX, dataY = dataX.to(self.device), dataY.to(self.device)
 
-        optimizer = optim.SGD(w2.parameters(), lr=self.learning_rate)
+        optimizer = optim.SGD(w2.parameters(), lr=self.learning_rate)    # Adam is better than SGD, less noise and faster convergence
         optimizer.zero_grad()
         output = w2(dataX)
         loss = self.criterion(output, dataY)      # training loss on current training mini-batch, e.g., entropy loss
@@ -194,11 +183,9 @@ class Agent_DPFL:
         return self.val_acc
    
 
-    def reset(self, model=None, prob_sgd=None):
+    def reset(self, model=None):
         # Agent-based properties
-        if prob_sgd is not None:
-            self.prob_sgd = prob_sgd
-
+       
         # Learning-based parameters
         if model is not None:
             self.w = model  # generate new random weights
@@ -206,54 +193,9 @@ class Agent_DPFL:
             self.w = deepcopy(self.initial_model)  # reuse initial model every time
         self.loss = 0
 
-        # Aggregation-based parameters
-        self.v = 1
-
-        # Counters
-        self.data_processed = 0
-        self.aggregation_count = 0
-
-    def cpu_used(self):
-        return self.v
-
-    @staticmethod
-    def max_cpu_usable():
-        return 1
-
-    def processing_time_used(self):
-        return self.cpu_used() / self.initial_prob_sgd
-
-    def max_processing_time_usable(self):
-        return self.max_cpu_usable() / self.initial_prob_sgd
-
-    def bandwidth_used(self):
-        return len(self.aggregation_neighbors)
-
-    def max_bandwidth_usable(self):
-        return self.get_degree()
-
-    def transmission_time_used(self):
-        transmission_time_used = 0
-        for neighbor in self.aggregation_neighbors:
-            transmission_time_used += 1 / neighbor['initial_prob_aggr']
-        return transmission_time_used / self.get_degree()
-        # return transmission_time_used / len(self.aggregation_neighbors)
-
-    def max_transmission_time_usable(self):
-        transmission_time_used = 0
-        for neighbor in self.neighbors:
-            transmission_time_used += 1 / neighbor['initial_prob_aggr']
-        return transmission_time_used / self.get_degree()
-
-    def delay_used(self):
-        return self.processing_time_used() + self.transmission_time_used()
-
-    def max_delay_usable(self):
-        return self.max_processing_time_usable() + self.max_transmission_time_usable()
     
-    def add_neighbor(self, agent, prob_aggr, initial_prob_aggr):
-        self.neighbors.append({'agent': agent, 'prob_aggr': 1.0,
-                               'initial_prob_aggr': 1.0, 'v_hat': 1})
+    def add_neighbor(self, agent):
+        self.neighbors.append({'agent': agent})
         # self.neighbors.append({'agent': agent, 'prob_aggr': prob_aggr,
         #                 'initial_prob_aggr': initial_prob_aggr, 'v_hat': 0})
 
@@ -282,9 +224,6 @@ class Agent_DPFL:
     def get_data_processed(self):
         return self.data_processed
 
-    def set_v_hat(self, neighbor_agent, v_hat):
-        self.find_neighbor(neighbor_agent)['v_hat'] = v_hat
-
     def set_train_set(self, train_set):
         self.train_set = train_set
 
@@ -294,11 +233,4 @@ class Agent_DPFL:
     def set_test_set(self, test_set):
         self.test_set = test_set
 
-    def set_prob_sgd(self, prob_sgd):
-        self.prob_sgd = prob_sgd
 
-    def set_prob_aggr(self, neighbor_agent, prob_aggr):
-        self.find_neighbor(neighbor_agent)['prob_aggr'] = prob_aggr
-
-    def set_initial_prob_aggr(self, neighbor_agent, initial_prob_aggr):
-        self.find_neighbor(neighbor_agent)['initial_prob_aggr'] = initial_prob_aggr

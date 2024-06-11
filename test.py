@@ -10,10 +10,48 @@ from gymnasium import spaces
 import numpy as np
 
 
-a= [{'test_acc': [5,4,3], 'TimeLimit.truncated': False}]  
+
+
+
+def expand_matrix(matrix):
+    # Get the number of rows (n) and columns (n-1) of the input matrix
+    n, n_minus_1 = matrix.shape
+    
+    # Create an n x n matrix filled with zeros
+    expanded_matrix = np.zeros((n, n))
+    
+    # Insert the elements from the input matrix into the new matrix
+    for i in range(n):
+        expanded_matrix[i, :i] = matrix[i, :i]
+        expanded_matrix[i, i+1:] = matrix[i, i:]
+    
+    return expanded_matrix
+
+
+
+b = np.array([[1, 2], [3, 4], [5, 6]])
+a = expand_matrix(b)
+print(a)
+
+
+
+
+""" def softmax(x):
+    exp_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
+    return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
+
+mixing_matrix = np.array([[0.0, 1000], [0.3, 0.1], [0.5, 0.5]])
+a=softmax(mixing_matrix[0])
+print(a) """
+
+
+
+
+
+""" a= [{'test_acc': [5,4,3], 'TimeLimit.truncated': False}]  
 b= a[0]['test_acc']
 print(b)
-
+ """
 
 """ class A:
      def __init__(self):

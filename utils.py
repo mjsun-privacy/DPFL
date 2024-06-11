@@ -41,6 +41,7 @@ def aux_info(dataset_name, model_name):
     elif dataset_name == "FEMNIST":
         transform = transforms.ToTensor()
 
+
     # 2) Adjust the transform based on the model that is going to be used
     if model_name == "SVM":
         transform = transforms.Compose([
@@ -83,6 +84,7 @@ def dataset_info(dataset_name, transform):
     return list(train_set), list(test_set), input_dim
 
 
+#! SVM is unsuitable for aggregation. And SVM on FMNIST is too easy, 10 samples local sgd reach 98% acc on 5000 unseen test set.
 def model_info(model_name, input_dim, num_classes, num_channels):
     model, criterion = None, None
     if model_name == "SVM":
@@ -160,9 +162,11 @@ def moving_average_df(df, window=32):
 
 def generate_train_val_test_sets(train_set, num_agents, num_classes, data_size, labels_per_agent=None, Dirichlet_alpha=None, partion_name=None):
     if partion_name == "by_labels":
-        return generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent, data_size)
+        return generate_train_val_test_sets_by_labels(train_set, num_agents,  num_classes, labels_per_agent, data_size)  
     elif partion_name == "Dirichlet":
         return generate_train_val_test_sets_Dirichlet(train_set, num_agents, num_classes, Dirichlet_alpha, data_size)
+    elif partion_name == "testlabel":
+        return testlabel(train_set, num_agents, num_classes, data_size)
     else:
         raise ValueError("Invalid partion name. Please specify either 'by_labels' or 'Dirichlet'.")
 
@@ -173,6 +177,8 @@ def generate_train_val_test_sets(train_set, num_agents, num_classes, data_size, 
 # should also split testing set here, the original testing set contains all classes
 #* we evaluate each local model on all the available test data belonging to the classes in its local task.
 
+#! data at each agent should not change during the whole RL training and eval process. 
+#! Random labels selection in below original code prevents RL from correct learning!
 def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, labels_per_agent, data_size):
     # First shuffle the training set,
     # and then separate it to a dictionary where each entry only contains data coming from one class
@@ -222,7 +228,7 @@ def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, l
         val_sets[i] = sample(agent_data[train_size:train_size + val_size], k= val_size) 
         test_sets[i] = sample(agent_data[train_size + val_size:], k=len(agent_data) - train_size - val_size)  
 
-    return train_sets, val_sets, test_sets
+    return train_sets, val_sets, test_sets 
 
     # separated_shuffled = [sample(separated[i], k=len(separated[i])) for i in range(len(separated))]
     # return separated_shuffled
@@ -230,6 +236,61 @@ def generate_train_val_test_sets_by_labels(train_set, num_agents, num_classes, l
 
 
 
+def testlabel(train_set, num_agents, num_classes, data_size): 
+    # First shuffle the training set
+    shuffled = sample(train_set, k=len(train_set))
+    
+    # Separate the data by their labels (classes)
+    separated_by_output = {j: [data for data in shuffled if data[1] == j] for j in range(num_classes)}
+
+    # Initialize dictionaries to hold training, validation, and test data for each agent
+    train_sets = {i: [] for i in range(num_agents)}
+    val_sets = {i: [] for i in range(num_agents)}
+    test_sets = {i: [] for i in range(num_agents)}
+
+    # Assign class 0 and class 1 data to agent 0, and class 8 and class 5 data to agent 1
+   # Divide class 0 and class 1 data between agent 0 and agent 1
+    """ train_sets[0].extend(separated_by_output[0])
+    train_sets[0].extend(separated_by_output[1])
+    train_sets[1].extend(separated_by_output[5])
+    train_sets[1].extend(separated_by_output[8]) """
+    class_0_data = separated_by_output[0]
+    class_1_data = separated_by_output[1]
+    train_sets[0].extend(class_0_data[:500])
+    train_sets[0].extend(class_1_data[:500])
+    train_sets[1].extend(class_0_data[500:])
+    train_sets[1].extend(class_1_data[500:])
+    
+    # Divide class 5 and class 8 data among agents 2, 3, and 4
+    class_5_data = separated_by_output[5]
+    class_8_data = separated_by_output[8]
+    agent2_data = class_5_data[:500] + class_8_data[:500]
+    agent3_data = class_5_data[500:1000] + class_8_data[500:1000]
+    agent4_data = class_5_data[1000:] + class_8_data[1000:]
+    
+    train_sets[2].extend(agent2_data)
+    train_sets[3].extend(agent3_data)
+    train_sets[4].extend(agent4_data)
+    
+
+    total_train_sizes = [16, 6000, 16, 16, 6000]
+    val_sizes = [500, 2000, 500, 500, 1000]
+    # test_sizes = [834, 1000, 500, 500, 1000]
+
+    # Shuffle and split each agent's data into training (70%), validation (20%), and test (10%) sets
+    for i in range(num_agents):
+        agent_data = sample(train_sets[i], k=len(train_sets[i]))  # Shuffle the agent's data
+
+        # 原来统一划分
+        #train_size = int(0.7 * data_size * len(agent_data))
+        # val_size = int(0.5 * len(agent_data))
+        
+        # 现在根据不同的agent划分不同的数据，和local sgd对比
+        train_sets[i] = agent_data[:total_train_sizes[i]]
+        val_sets[i] = agent_data[total_train_sizes[i]:total_train_sizes[i] + val_sizes[i]]
+        test_sets[i] = agent_data[total_train_sizes[i] + val_sizes[i]:]
+
+    return train_sets, val_sets, test_sets
 
 
 
@@ -305,10 +366,3 @@ def save_results(log, filepath):
             df_i.to_excel(writer, sheet_name=sheets[i])
 
 
-def determine_DandB(DandB, initial_prob_sgds, initial_prob_aggrs):
-    D, B = DandB
-    if D is None:
-        D = int(np.mean([1/ips for ips in initial_prob_sgds]))
-    if B is None:
-        B = int(np.mean([[1/ipa for ipa in row] for row in initial_prob_aggrs]))
-    return (D, B)

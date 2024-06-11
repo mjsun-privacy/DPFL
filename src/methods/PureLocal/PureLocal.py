@@ -17,7 +17,6 @@ class PureLocal:
                  model_name: str,
                  dataset_name: str,
                  partition_name: str,
-                 num_epochs: int,
                  num_agents: int,
                  graph_connectivity: float,
                  labels_per_agent: int,
@@ -28,7 +27,6 @@ class PureLocal:
                  seed: int):
         
         self.model_name = model_name
-        self.num_epochs = num_epochs
         self.num_agents = num_agents
         self.graph_connectivity = graph_connectivity
         self.labels_per_agent = labels_per_agent
@@ -49,8 +47,8 @@ class PureLocal:
         models, criterion, self.model_dim = self.generate_models()
 
         self.agents = self.generate_agents(models, criterion, train_sets, val_sets, test_sets)
-        self.accuracies = []
-
+        self.accuracy_avg = []
+        self.accuracy_per_agent = []
 
      def generate_models(self):
          models, criterion, model_dim = [], None, None
@@ -90,32 +88,30 @@ class PureLocal:
         #for k in range(self.num_epochs):
             #print(f"epoch: {k}")
 
-        for i in range(300):
-                #total_iter = k * num_iters + i
-                # print(f"epoch: {k}, iter: {i}, total_iter={total_iter}")
-                loss = 0.0
-                test_acc = 0.0
-                val_loss = 0.0
+        num_iters = 5
 
+        for k in range(300):
+            for i in range(num_iters):
+        
                 for j in range(self.num_agents):
                     self.agents[j].run_step1()
+            
+            test_acc = 0.0
+            test_accs = [0.0]*self.num_agents
 
-                test_accs = [0.0]*self.num_agents
-                val_losses = [0.0]*self.num_agents
-
-                for j in range(self.num_agents):
-                    test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
-                    test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
+            for j in range(self.num_agents):
+                test_acc += float(self.agents[j].calculate_accuracy())   # float (64)
+                test_accs[j] = self.agents[j].calculate_accuracy() # TODO: verify that across several step(), the Agent remain at the same position in the vector self.agents # Yes, no effect
                     #val_loss +=float(self.agents[j].calculate_val_loss()) 
                     #val_losses[j] = self.agents[j].calculate_val_loss() 
 
 
-                iters.append(total_iter)
-                self.accuracies.append(test_acc / self.num_agents)
-                print(test_acc / self.num_agents)
+            self.accuracy_avg.append(test_acc / self.num_agents)
+            self.accuracy_per_agent.append(test_accs)
+            print(test_acc / self.num_agents)
 
         log1 = {"iters": iters,
-                "test_accuracy": self.accuracies,}
+                "test_accuracy": self.accuracy_avg,}
 
         return log1
      

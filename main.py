@@ -24,6 +24,11 @@ import pandas as pd
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 torch.set_default_tensor_type(torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor)
 
+
+
+
+
+
 def main(row_number):  
     # Load parameters from the pandas DataFrame
     # read the column of Parameters (e.g., num of agents, time slot) in Pandas Data Frame as x axis, and get metric e.g., val loss as y axis, 
@@ -67,21 +72,15 @@ def main(row_number):
        env = DPFL( 
            model_name = 'CNN',
            dataset_name = 'CIFAR10',
-           partition_name = Partition_name,
-           num_agents = 10,
+           partition_name = 'testlabel',
+           num_agents = 5,
            graph_connectivity = Graph_connectivity,
-           labels_per_agent = 2,
+           labels_per_agent = 200000,
            Dirichlet_alpha = alpha,
-           data_size = 0.01,
+           data_size = Data_size,
            batch_size = Batch_size,
            learning_rate = Learning_rate,
-           prob_aggr_type = 'full',
-           prob_sgd_type = 'full',
-           sim_type = 'data_dist',
-           prob_dist_params = (0.5, 0.5),    # (alpha, beta) or (min, max)
-           termination_delay = 500,
-           DandB = (None,1),
-           max_episode_steps = 250,
+           max_episode_steps = 500,
            seed = Seed
            )      #* max_episode_steps = n_steps in PPO()
 
@@ -92,35 +91,46 @@ def main(row_number):
     # Callback during training
     # eval_callback = EvalCallback(env...)  record logs during RL training
     # Create a PPO model
-       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 250)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
+       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 500)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 1500, progress_bar=True)     # 5000
-    # Save the model
-       RL.save("RLmodel_saved") 
-       del RL  # delete trained model to demonstrate loading
-    # Load the trained agent
-       RL = PPO.load("RLmodel_saved", env=env)
+       RL.learn(total_timesteps = 2000, progress_bar=True)     # 5000
+
+       # get training records
+       trainRL_df = pd.DataFrame({
+        'iteration': range(len(env.training_records['test_acc'])),   # 5000
+        'actions': env.training_records['action'],
+        'rewards': env.training_records['reward'],
+        'test_acc': env.training_records['test_acc'],})
+       trainRL_df.to_csv(os.path.join(data_dir, f"train_{row_number}_{Method_name}.csv"), index=False)
+
+
+
     # Evaluate the model
        vec_env = RL.get_env()                     # sb3 and gym have different interface, here must use vec_env of sb3
        obs = vec_env.reset()                      # clear model
-       accs = []
+       test_acc_avg = []
+       test_acc_per_agent = []
        actions = []
 
-       for i in range (500):                       # num of step()    # 1000
+       for i in range (300):                       #  set deterministic=True to choose the action with the highest probability
            mixing_matrix, _state = RL.predict(obs, deterministic = True)
            obs, reward, terminated, info = vec_env.step(mixing_matrix)    # in sb3.step, only 4 output, but newest gym has 5, not env.step
            # record acc
-           accs.append(info[0]['test_acc'])
+           test_acc_avg.append(info[0]['test_acc'])
+           test_acc_per_agent.append(info[0]['test_acc_per_agent'])
+           
+           # dicrete case
            actions.append(mixing_matrix)
                
     # record all metrics based on a row of parameters in one table
        
        metric_df = pd.DataFrame({
-        'iteration': range(len(accs)),
-        'test_acc': accs,
+        'iteration': range(len(test_acc_avg)),
+        'test_acc': test_acc_avg,
+        'test_acc_per_agent': test_acc_per_agent,   
         'actions': actions})
-       metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
+       metric_df.to_csv(os.path.join(data_dir, f"eval_{row_number}_{Method_name}.csv"), index=False)
 
 
 
@@ -128,48 +138,44 @@ def main(row_number):
          exp = DSpodFL(
                  model_name= 'CNN',
                  dataset_name= 'CIFAR10',
-                 partition_name = Partition_name,   
-                 num_epochs= 0,
-                 num_agents= 10,
-                 graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                 labels_per_agent= 2,
+                 partition_name = 'testlabel',   
+                 num_agents= 5,
+                 graph_connectivity= 100,     # should note this param in other algs
+                 labels_per_agent= 100000,
                  Dirichlet_alpha= alpha,
-                 data_size = 0.01,
+                 data_size = Data_size,
                  batch_size= Batch_size,
                  learning_rate= Learning_rate,
-                 prob_aggr_type= 'full',
-                 prob_sgd_type= 'full',
-                 sim_type= 'data_dist',
-                 prob_dist_params= (0.5, 0.5),
-                 termination_delay= 500,
-                 DandB= (None,1),
                  seed= Seed)
          exp.run()
          metric_df = pd.DataFrame({
-        'iteration': range(len(exp.accuracies)),
-        'test_acc': exp.accuracies})
+        'iteration': range(len(exp.accuracy_avg)),
+        'test_acc': exp.accuracy_avg,
+         'test_acc_per_agent': exp.accuracy_per_agent
+         })
          metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
         
+
+
 
     elif(Method_name  == 'PureLocal'):
         exp = PureLocal(
                 model_name= 'CNN',
                 dataset_name= 'CIFAR10',
-                partition_name = Partition_name,
-                num_epochs= 0,
-                num_agents= 10,
+                partition_name = 'testlabel',
+                num_agents= 5,
                 graph_connectivity= Graph_connectivity,     # should note this param in other algs
-                labels_per_agent= 2,    # 至少为二分类，labels = 2， local sgd labels= 1的话正确率应该是100%。
+                labels_per_agent= 10000,    # 至少为二分类，labels = 2， local sgd labels= 1的话正确率应该是100%。
                 Dirichlet_alpha= alpha,
-                data_size = 0.01,
+                data_size = Data_size,
                 batch_size= 16,
                 learning_rate= Learning_rate,
                 seed= Seed)
-        exp.reset()
         exp.run()
         metric_df = pd.DataFrame({
-        'iteration': range(len(exp.accuracies)),
-        'test_acc': exp.accuracies})
+        'iteration': range(len(exp.accuracy_avg)),
+        'test_acc': exp.accuracy_avg,
+        'test_acc_per_agent': exp.accuracy_per_agent})
         metric_df.to_csv(os.path.join(data_dir, f"{row_number}_{Method_name}.csv"), index=False)
       
     else:

@@ -19,7 +19,6 @@ class Agent_DSpodFL:
                  test_set,
                  batch_size: int,
                  learning_rate: float,
-                 prob_sgd: float,
                  ):
         self.id = id,
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,7 +29,7 @@ class Agent_DSpodFL:
         self.test_set = test_set
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.prob_sgd = self.initial_prob_sgd = prob_sgd
+        
 
         self.w = deepcopy(self.initial_model)
         self.len_params = len(list(initial_model.parameters()))
@@ -45,19 +44,15 @@ class Agent_DSpodFL:
         self.val_loss = 0.0
         self.data_processed = 0
         self.aggregation_count = 0
-        self.v = 0
 
     def run_step1(self):
         self.gradient = [0 for _ in range(self.len_params)]
-        if self.v == 1:
-            self.gradient = self.event_data(choices(self.train_set, k=self.batch_size))
+        self.gradient = self.event_data(choices(self.train_set, k=self.batch_size))
 
         self.aggregation = [0 for _ in range(self.len_params)]
         self.aggregation_neighbors = []
         for neighbor in self.neighbors:
-            if neighbor['v_hat'] == 1:
-                self.aggregation_neighbors.append(neighbor)
-                neighbor['v_hat'] = 0
+            self.aggregation_neighbors.append(neighbor)
         if len(self.aggregation_neighbors) != 0:
             self.aggregation = self.event_aggregation()
 
@@ -68,14 +63,6 @@ class Agent_DSpodFL:
                 param.data += self.aggregation[param_idx] - self.gradient[param_idx]
                 param_idx += 1
 
-        self.v = 0
-        if random() <= self.prob_sgd:
-            self.v = 1
-
-        for neighbor in self.neighbors:
-            if random() <= neighbor['prob_aggr']:
-                neighbor['v_hat'] = 1
-                neighbor['agent'].set_v_hat(self, 1)
 
     def event_data(self, data):
         self.data_processed += self.batch_size
@@ -83,7 +70,7 @@ class Agent_DSpodFL:
 
     def event_aggregation(self):
         aggregation = [0 for _ in range(self.len_params)]
-        for neighbor in self.aggregation_neighbors:
+        for neighbor in self.neighbors:
             aggregation_weight = self.calculate_aggregation_weight(neighbor['agent'])
 
             param_idx = 0
@@ -91,7 +78,7 @@ class Agent_DSpodFL:
                 aggregation[param_idx] += aggregation_weight * (param_neighbor.data - param.data)
                 param_idx += 1
 
-        self.aggregation_count += len(self.aggregation_neighbors)
+        self.aggregation_count += len(self.neighbors)
         return aggregation
 
     def gradient_descent(self, data):
@@ -156,10 +143,8 @@ class Agent_DSpodFL:
         self.accuracy = utils.calculate_accuracy(self.w, self.test_set)
         return self.accuracy
 
-    def reset(self, model=None, prob_sgd=None):
-        # Agent-based properties
-        if prob_sgd is not None:
-            self.prob_sgd = prob_sgd
+    def reset(self, model=None):
+
 
         # Learning-based parameters
         if model is not None:
@@ -168,54 +153,10 @@ class Agent_DSpodFL:
             self.w = deepcopy(self.initial_model)  # reuse initial model every time
         self.loss = 0
 
-        # Aggregation-based parameters
-        self.v = 1
 
-        # Counters
-        self.data_processed = 0
-        self.aggregation_count = 0
 
-    def cpu_used(self):
-        return self.v
-
-    @staticmethod
-    def max_cpu_usable():
-        return 1
-
-    def processing_time_used(self):
-        return self.cpu_used() / self.initial_prob_sgd
-
-    def max_processing_time_usable(self):
-        return self.max_cpu_usable() / self.initial_prob_sgd
-
-    def bandwidth_used(self):
-        return len(self.aggregation_neighbors)
-
-    def max_bandwidth_usable(self):
-        return self.get_degree()
-
-    def transmission_time_used(self):
-        transmission_time_used = 0
-        for neighbor in self.aggregation_neighbors:
-            transmission_time_used += 1 / neighbor['initial_prob_aggr']
-        return transmission_time_used / self.get_degree()
-        # return transmission_time_used / len(self.aggregation_neighbors)
-
-    def max_transmission_time_usable(self):
-        transmission_time_used = 0
-        for neighbor in self.neighbors:
-            transmission_time_used += 1 / neighbor['initial_prob_aggr']
-        return transmission_time_used / self.get_degree()
-
-    def delay_used(self):
-        return self.processing_time_used() + self.transmission_time_used()
-
-    def max_delay_usable(self):
-        return self.max_processing_time_usable() + self.max_transmission_time_usable()
-
-    def add_neighbor(self, agent, prob_aggr, initial_prob_aggr):
-        self.neighbors.append({'agent': agent, 'prob_aggr': 1.0,
-                               'initial_prob_aggr': 1.0, 'v_hat': 0})
+    def add_neighbor(self, agent):
+        self.neighbors.append({'agent': agent})
 
     def clear_neighbors(self):
         self.neighbors = []
@@ -232,9 +173,6 @@ class Agent_DSpodFL:
     def get_w(self):
         return self.w
 
-    def get_v_hat(self, neighbor_agent):
-        return self.find_neighbor(neighbor_agent)['v_hat']
-
     def get_loss(self):
         return self.loss
 
@@ -244,11 +182,7 @@ class Agent_DSpodFL:
     def get_aggregation_neighbors_count(self):
         return len(self.aggregation_neighbors)
 
-    def get_data_processed(self):
-        return self.data_processed
 
-    def set_v_hat(self, neighbor_agent, v_hat):
-        self.find_neighbor(neighbor_agent)['v_hat'] = v_hat
 
     def set_train_set(self, train_set):
         self.train_set = train_set
@@ -258,12 +192,3 @@ class Agent_DSpodFL:
 
     def set_test_set(self, test_set):    
         self.test_set = test_set    
-
-    def set_prob_sgd(self, prob_sgd):
-        self.prob_sgd = prob_sgd
-
-    def set_prob_aggr(self, neighbor_agent, prob_aggr):
-        self.find_neighbor(neighbor_agent)['prob_aggr'] = prob_aggr
-
-    def set_initial_prob_aggr(self, neighbor_agent, initial_prob_aggr):
-        self.find_neighbor(neighbor_agent)['initial_prob_aggr'] = initial_prob_aggr

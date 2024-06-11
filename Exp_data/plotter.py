@@ -8,7 +8,7 @@ import numpy as np
 # file_path = '47.csv'
 
 
-csv_folder = '06-03_22-53'
+csv_folder = 'data/06-09_12-53'
 plot_folder = './plots'
 
 # Create the plot folder if it doesn't exist
@@ -34,7 +34,7 @@ def plot_specific_csv_files(csv_folder, plot_folder, file_names, x_key, y_key, c
         else:
             print(f'Columns {x_key} and/or {y_key} not found in {filename}')
 
-    plt.title(f'{"SVM, CIFAR 10, 10 agents, each agent 2 labels, in total 69 train samples, 1000 val samples, 3931 test samples"}')
+    plt.title(f'{"CNN, CIFAR 10, 5 agents, each agent 2 labels"}')
     plt.xlabel(x_key)  # Label for the x-axis
     plt.ylabel(y_key)  # Label for the y-axis
 
@@ -48,11 +48,11 @@ def plot_specific_csv_files(csv_folder, plot_folder, file_names, x_key, y_key, c
     print(f'Saved plot for {", ".join(file_names)} to {plot_filepath}')
 
 # List of specific CSV files to plot
-specific_files = ['11.csv', '12.csv', '13.csv']
+specific_files = ['2_DPFL.csv']
 # Columns to plot
 x_column = 'iteration'
 y_column = 'test_acc'
-custom_labels = ['RL aggr', 'Decentralized Average (DSpodFL)', 'Local SGD']
+custom_labels = ['RL aggr']   # , 'Decentralized Average (DSpodFL)', 'Local SGD'
 
 # Call the function to plot specific CSV files
 plot_specific_csv_files(csv_folder, plot_folder, specific_files, x_column, y_column, custom_labels)
