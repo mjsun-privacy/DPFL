@@ -91,7 +91,7 @@ class Agent_DPFL:
             #print(f"current action of agent{self.id} is:{softmax(mixing_matrix[self.id])}") 
            
            
-            # mixing_matrix[1:, :] = 0
+            # mixing_matrix[1:, :] = 0   # independent RL other local sgd learns correctly
             #* wii in mixing_matrix is useless, because in update wii = 1-\sum wij, and sum = 1 always holds. 
             #* To recover L2C, we can let \sum wij \in [0，1], so that wii \in [0,1], 
             for neighbor in self.aggregation_neighbors: 

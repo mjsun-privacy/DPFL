@@ -61,9 +61,9 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
         #Call constructor of parent class and specify action and state spaces
         # inherit attributes action_space and obs_space from Class gym.env and redefine     # mj: in multi rl, env, action and state spaces should be in Class Agents
         super(DPFL, self).__init__()
-        #self.action_space = spaces.Box(low=0.0, high=1.0, shape=(self.num_agents, self.num_agents - 1), dtype=np.float64) # flattened mixing matrix  #* should not be flattened
-        discrete_values = np.array([0.0, 0.5, 1.0])
-        self.action_space = spaces.MultiDiscrete([len(discrete_values)] * (self.num_agents * (self.num_agents - 1)))
+        self.action_space = spaces.Box(low=0.0, high=1.0, shape=(self.num_agents, self.num_agents - 1), dtype=np.float64) # flattened mixing matrix  #* should not be flattened
+        #discrete_values = np.array([0.0, 0.5, 1.0])   # learns worse weight
+        #self.action_space = spaces.MultiDiscrete([len(discrete_values)] * (self.num_agents * (self.num_agents - 1)))
         self.observation_space = spaces.Box(low=0.0, high=100, shape=(self.num_agents,), dtype=np.float64) #TODO: these are the losses. find how to give no high bound  #self.num_agents,   
 
         # self.obs = [0]*self.num_agents # New: contains the system state (observation). Initialized at zero
@@ -172,9 +172,9 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
 
         info = {}
         
-        # Map 0 -> 0, 1 -> 0.5, 2 -> 1
+        """ # Map 0 -> 0, 1 -> 0.5, 2 -> 1
         mixing_matrix = np.reshape(mixing_matrix, (self.num_agents, self.num_agents - 1))
-        mixing_matrix = mixing_matrix * 0.5
+        mixing_matrix = mixing_matrix * 0.5 """
       
         #mixing_matrix = np.clip(mixing_matrix, 0.0, 1.0)
         # fill diogonal elements 0 for simplicity
@@ -196,7 +196,7 @@ class DPFL(gym.Env):      # my_env, subclass of class gym.Env  (not a wrapper)
             # iters num require for one epoch (passing all training_data once for sgd), we don't need epoch
             # if DL runs multiple steps, will w begins correctly from previous DL round and as the start of next RL round? Yes, self.w records
         
-        num_iters = 5          # more sgd steps and aggrs using each action enables RL to learn more, such as to reduce the noise from sgd 
+        num_iters = 10          # more sgd steps and aggrs using each action enables RL to learn more, such as to reduce the noise from sgd 
         for i in range(num_iters):
 
             for j in range(self.num_agents):

@@ -77,7 +77,7 @@ def main(row_number):
            data_size = Data_size,
            batch_size = Batch_size,
            learning_rate = Learning_rate,
-           max_episode_steps = 500,
+           max_episode_steps = 800,
            seed = Seed
            )      #* max_episode_steps = n_steps in PPO()
 
@@ -88,10 +88,10 @@ def main(row_number):
     # Callback during training
     # eval_callback = EvalCallback(env...)  record logs during RL training
     # Create a PPO model
-       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 500)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
+       RL = PPO("MlpPolicy", env, verbose = 1, n_steps = 800)    # 500不够还在下降中 -1.10，max num of step() in an episode, regardless of terminate state of a episode
     # Train the model
     # total_timesteps is total number of step(), where n_steps of step() as a episode, after every n_steps calls reset() regardless of terminate state
-       RL.learn(total_timesteps = 2000, progress_bar=True)     # 5000
+       RL.learn(total_timesteps = 4000, progress_bar=True)     # 5000
 
        # get training records
        trainRL_df = pd.DataFrame({
