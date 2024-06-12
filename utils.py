@@ -273,7 +273,7 @@ def testlabel(train_set, num_agents, num_classes, data_size):
     train_sets[4].extend(agent4_data)
     
 
-    total_train_sizes = [6, 6000, 6, 6, 6000]
+    total_train_sizes = [6, 6000, 6, 6, 6000]    # local sgd: trained on 16: 63%;  6: 46 %; lower than random guess 
     val_sizes = [500, 2000, 500, 500, 1000]
     # test_sizes = [834, 1000, 500, 500, 1000]
 

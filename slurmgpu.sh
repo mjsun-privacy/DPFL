@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -J DPFL
-#SBATCH --time=0-7:00:00
+#SBATCH --time=0-9:00:00
 #SBATCH --array=2-4
 #SBATCH -p gpu
 #SBATCH --gres=gpu:teslap100:1    #gtx1080ti
